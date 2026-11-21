@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   AlertTriangle,
+  ArrowLeft,
   Compass,
   Pause,
   Play,
@@ -121,6 +122,14 @@ export default function App() {
       <header className="sticky top-0 z-30 border-b border-slate-800/80 bg-[#040711]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
           <div className="flex items-center gap-3">
+            <a
+              href="https://portfolio-hub-44jc.vercel.app/"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-1.5 font-mono text-xs font-medium text-slate-300 transition-colors hover:border-cyan-500/50 hover:text-white"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 text-cyan-400" />
+              <span>Portfolio</span>
+            </a>
+            <div className="h-5 w-px bg-slate-800" />
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/40 bg-cyan-500/10 text-cyan-400">
               <Satellite className="h-5 w-5" />
             </div>
