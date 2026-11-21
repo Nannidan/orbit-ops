@@ -175,11 +175,16 @@
     border-radius: 8px;
     overflow: hidden;
   }
-  .tel-stage img {
+  .tel-stage img,
+  .tel-stage canvas {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
     display: block;
+  }
+  .tel-stage img {
+    object-fit: cover;
   }
   .tel-overlay {
     position: absolute;
@@ -215,20 +220,26 @@
     gap: 6px;
     font-size: 10px;
     color: #7c93b0;
+    flex-wrap: wrap;
   }
   .tel-actions {
     display: flex;
-    gap: 5px;
+    gap: 4px;
+    flex-wrap: wrap;
   }
   .tel-btn {
     background: rgba(255, 255, 255, 0.06);
     color: #e6f4ff;
     border: 1px solid rgba(0, 240, 255, 0.28);
     border-radius: 6px;
-    padding: 4px 8px;
+    padding: 4px 7px;
     font-size: 10px;
     font-family: inherit;
     cursor: pointer;
+  }
+  .tel-btn.active {
+    border-color: #39ff14;
+    color: #39ff14;
   }
 </style>
 <script>
@@ -237,20 +248,90 @@
     hst: {
       title: 'HUBBLE // LIVE FEED',
       cls: '',
+      accent: '#00f0ff',
       query: 'hubble space telescope nebula galaxy',
       fallback: [
         { title: 'NGC 1300 Barred Spiral Galaxy (WFC3)', date: 'NASA Archive', url: 'https://images-assets.nasa.gov/image/PIA04216/PIA04216~medium.jpg' }
+      ],
+      targets: [
+        { name: 'NGC 1300', inst: 'WFC3/UVIS', band: 'OPTICAL', ra: '03h 19m 41s', dec: '-19° 24′ 41″' },
+        { name: 'M51 WHIRLPOOL', inst: 'ACS/WFC', band: 'H-ALPHA', ra: '13h 29m 52s', dec: '+47° 11′ 43″' },
+        { name: 'VEIL NEBULA', inst: 'WFC3/IR', band: 'NARROWBAND', ra: '20h 45m 38s', dec: '+30° 42′ 30″' }
       ]
     },
     jwst: {
       title: 'JAMES WEBB // LIVE FEED',
       cls: 'jwst',
+      accent: '#ffb800',
       query: 'james webb space telescope',
       fallback: [
         { title: 'Carina Nebula Cosmic Cliffs (NIRCam)', date: 'NASA Archive', url: 'https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e002135/GSFC_20171208_Archive_e002135~medium.jpg' }
+      ],
+      targets: [
+        { name: 'CARINA RIM', inst: 'NIRCam/MIRI', band: 'NEAR/MID-IR', ra: '10h 45m 08s', dec: '-59° 52′ 04″' },
+        { name: 'SMACS 0723', inst: 'NIRCam', band: 'DEEP IR', ra: '07h 23m 19s', dec: '-73° 27′ 15″' },
+        { name: 'WASP-39b', inst: 'NIRSpec', band: 'SPECTRA', ra: '14h 29m 18s', dec: '-03° 26′ 40″' }
       ]
     }
   };
+
+  function startInPageCanvas(key, cfg) {
+    const cvs = document.getElementById('tel-cvs-' + key);
+    const ctx = cvs.getContext('2d');
+    const stars = Array.from({ length: 75 }, () => ({
+      x: Math.random(),
+      y: Math.random(),
+      r: Math.random() * 1.4 + 0.3,
+      a: Math.random()
+    }));
+
+    function render(now) {
+      if (cvs.style.display !== 'none') {
+        const w = cvs.clientWidth || 320;
+        const h = cvs.clientHeight || 200;
+        if (cvs.width !== w || cvs.height !== h) {
+          cvs.width = w;
+          cvs.height = h;
+        }
+        const t = now * 0.001;
+        const slot = Math.floor(t / 15) % cfg.targets.length;
+        const tgt = cfg.targets[slot];
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, w, h);
+
+        const grad = ctx.createRadialGradient(w * 0.52, h * 0.48, 8, w * 0.52, h * 0.48, Math.min(w, h) * 0.45);
+        grad.addColorStop(0, key === 'jwst' ? 'rgba(255, 184, 0, 0.22)' : 'rgba(0, 240, 255, 0.20)');
+        grad.addColorStop(0.55, 'rgba(180, 76, 255, 0.08)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+
+        for (let i = 0; i < stars.length; i++) {
+          const s = stars[i];
+          const tw = 0.35 + 0.65 * Math.abs(Math.sin(t * 1.3 + s.a * 10));
+          ctx.fillStyle = 'rgba(230, 244, 255, ' + tw.toFixed(2) + ')';
+          ctx.beginPath();
+          ctx.arc(s.x * w, s.y * h, s.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        const cx = w * 0.52 + Math.sin(t * 0.25) * 10;
+        const cy = h * 0.48 + Math.cos(t * 0.2) * 8;
+        ctx.strokeStyle = cfg.accent;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cx - 24, cy - 24, 48, 48);
+
+        ctx.fillStyle = '#e6f4ff';
+        ctx.font = '10px monospace';
+        ctx.fillText('TARGET: ' + tgt.name + ' [' + tgt.band + ']', 10, 16);
+        ctx.fillStyle = cfg.accent;
+        ctx.fillText(tgt.inst + ' · RA ' + tgt.ra + ' · DEC ' + tgt.dec, 10, h - 10);
+      }
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+  }
 
   function makeCard(key) {
     const cfg = CONFIGS[key];
@@ -263,7 +344,8 @@
       '</div>' +
       '<div class="tel-stage">' +
         '<img id="tel-img-' + key + '" alt="' + cfg.title + '" />' +
-        '<div class="tel-overlay">' +
+        '<canvas id="tel-cvs-' + key + '" style="display:none"></canvas>' +
+        '<div class="tel-overlay" id="tel-ov-' + key + '">' +
           '<div class="tel-cap-title" id="tel-ti-' + key + '">Loading observation feed...</div>' +
           '<div class="tel-cap-meta" id="tel-me-' + key + '">NASA IMAGE API</div>' +
         '</div>' +
@@ -271,9 +353,10 @@
       '<div class="tel-bar">' +
         '<span id="tel-st-' + key + '">AUTO-CYCLE 15s</span>' +
         '<div class="tel-actions">' +
+          '<button class="tel-btn active" id="tel-m-feed-' + key + '">LIVE FEED</button>' +
+          '<button class="tel-btn" id="tel-m-inpage-' + key + '">IN-PAGE VIEW</button>' +
           '<button class="tel-btn" id="tel-prev-' + key + '">&lt;</button>' +
           '<button class="tel-btn" id="tel-next-' + key + '">&gt;</button>' +
-          '<button class="tel-btn" id="tel-sync-' + key + '">SYNC</button>' +
         '</div>' +
       '</div>';
     return card;
@@ -282,13 +365,31 @@
   async function initFeed(key) {
     const cfg = CONFIGS[key];
     const img = document.getElementById('tel-img-' + key);
+    const cvs = document.getElementById('tel-cvs-' + key);
+    const ov = document.getElementById('tel-ov-' + key);
     const ti = document.getElementById('tel-ti-' + key);
     const me = document.getElementById('tel-me-' + key);
     const cnt = document.getElementById('tel-cnt-' + key);
     const st = document.getElementById('tel-st-' + key);
+    const mFeed = document.getElementById('tel-m-feed-' + key);
+    const mInpage = document.getElementById('tel-m-inpage-' + key);
+
+    startInPageCanvas(key, cfg);
 
     let items = cfg.fallback.slice();
     let idx = 0;
+    let mode = 'feed';
+
+    function setMode(nextMode) {
+      mode = nextMode;
+      const isFeed = mode === 'feed';
+      img.style.display = isFeed ? 'block' : 'none';
+      ov.style.display = isFeed ? 'flex' : 'none';
+      cvs.style.display = isFeed ? 'none' : 'block';
+      mFeed.classList.toggle('active', isFeed);
+      mInpage.classList.toggle('active', !isFeed);
+      cnt.textContent = isFeed ? ('LIVE · ' + (idx + 1) + '/' + items.length) : 'IN-PAGE STREAM';
+    }
 
     function renderItem(n) {
       if (!items.length) return;
@@ -303,11 +404,11 @@
       img.src = cur.url;
       ti.textContent = cur.title;
       me.textContent = cur.date + ' · FEED #' + (idx + 1);
-      cnt.textContent = 'LIVE · ' + (idx + 1) + '/' + items.length;
+      if (mode === 'feed') cnt.textContent = 'LIVE · ' + (idx + 1) + '/' + items.length;
     }
 
     async function fetchLive() {
-      cnt.textContent = 'POLLING...';
+      if (mode === 'feed') cnt.textContent = 'POLLING...';
       try {
         const res = await fetch('https://images-api.nasa.gov/search?q=' + encodeURIComponent(cfg.query) + '&media_type=image&year_start=2022');
         if (!res.ok) throw new Error('HTTP');
@@ -336,9 +437,10 @@
       }
     }
 
+    mFeed.onclick = () => setMode('feed');
+    mInpage.onclick = () => setMode('inpage');
     document.getElementById('tel-prev-' + key).onclick = () => renderItem(idx - 1);
     document.getElementById('tel-next-' + key).onclick = () => renderItem(idx + 1);
-    document.getElementById('tel-sync-' + key).onclick = fetchLive;
 
     await fetchLive();
     setInterval(() => renderItem(idx + 1), 15000);
