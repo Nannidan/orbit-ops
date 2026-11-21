@@ -246,43 +246,63 @@
 (() => {
   const CONFIGS = {
     hst: {
-      title: 'HUBBLE // LIVE FEED',
+      title: 'HUBBLE // IN-PAGE VIEW',
       cls: '',
       accent: '#00f0ff',
+      secondary: '#b44cff',
       query: 'hubble space telescope nebula galaxy',
       fallback: [
         { title: 'NGC 1300 Barred Spiral Galaxy (WFC3)', date: 'NASA Archive', url: 'https://images-assets.nasa.gov/image/PIA04216/PIA04216~medium.jpg' }
       ],
       targets: [
-        { name: 'NGC 1300', inst: 'WFC3/UVIS', band: 'OPTICAL', ra: '03h 19m 41s', dec: '-19° 24′ 41″' },
-        { name: 'M51 WHIRLPOOL', inst: 'ACS/WFC', band: 'H-ALPHA', ra: '13h 29m 52s', dec: '+47° 11′ 43″' },
-        { name: 'VEIL NEBULA', inst: 'WFC3/IR', band: 'NARROWBAND', ra: '20h 45m 38s', dec: '+30° 42′ 30″' }
+        { name: 'ORION NEBULA (M42)', kind: 'nebula', inst: 'WFC3/UVIS', band: 'H-ALPHA + OIII', ra: '05h 35m 17s', dec: '-05° 23′ 28″', c1: 'rgba(0,240,255,0.34)', c2: 'rgba(255,42,133,0.28)' },
+        { name: 'NGC 1300 BARRED SPIRAL', kind: 'spiral', inst: 'ACS/WFC', band: 'OPTICAL COMPOSITE', ra: '03h 19m 41s', dec: '-19° 24′ 41″', c1: 'rgba(180,76,255,0.34)', c2: 'rgba(0,240,255,0.26)' },
+        { name: 'CRAB NEBULA (M1)', kind: 'nebula', inst: 'WFC3/IR', band: 'SYNCHROTRON', ra: '05h 34m 32s', dec: '+22° 00′ 52″', c1: 'rgba(57,255,20,0.28)', c2: 'rgba(0,240,255,0.32)' }
       ]
     },
     jwst: {
-      title: 'JAMES WEBB // LIVE FEED',
+      title: 'JAMES WEBB // IN-PAGE VIEW',
       cls: 'jwst',
       accent: '#ffb800',
+      secondary: '#ff2a85',
       query: 'james webb space telescope',
       fallback: [
         { title: 'Carina Nebula Cosmic Cliffs (NIRCam)', date: 'NASA Archive', url: 'https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e002135/GSFC_20171208_Archive_e002135~medium.jpg' }
       ],
       targets: [
-        { name: 'CARINA RIM', inst: 'NIRCam/MIRI', band: 'NEAR/MID-IR', ra: '10h 45m 08s', dec: '-59° 52′ 04″' },
-        { name: 'SMACS 0723', inst: 'NIRCam', band: 'DEEP IR', ra: '07h 23m 19s', dec: '-73° 27′ 15″' },
-        { name: 'WASP-39b', inst: 'NIRSpec', band: 'SPECTRA', ra: '14h 29m 18s', dec: '-03° 26′ 40″' }
+        { name: 'CARINA CLIFFS (NGC 3324)', kind: 'nebula', inst: 'NIRCam + MIRI', band: 'NEAR/MID-IR', ra: '10h 45m 08s', dec: '-59° 52′ 04″', c1: 'rgba(255,184,0,0.36)', c2: 'rgba(255,42,133,0.28)' },
+        { name: 'ANDROMEDA DUST (M31)', kind: 'spiral', inst: 'MIRI/IMAGER', band: 'MID-IR 7.7-21um', ra: '00h 42m 44s', dec: '+41° 16′ 09″', c1: 'rgba(255,184,0,0.32)', c2: 'rgba(180,76,255,0.28)' },
+        { name: 'WASP-39b EXOPLANET', kind: 'spectra', inst: 'NIRSpec/G395H', band: 'TRANSIT IR', ra: '14h 29m 18s', dec: '-03° 26′ 40″', c1: 'rgba(255,184,0,0.32)', c2: 'rgba(0,240,255,0.26)' }
       ]
     }
   };
 
-  function startInPageCanvas(key, cfg) {
+  function drawSpikes(ctx, x, y, len, color, t) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    const rot = Math.sin(t * 0.2) * 0.04;
+    for (let k = 0; k < 3; k++) {
+      const ang = rot + (k * Math.PI) / 3;
+      const dx = Math.cos(ang) * len;
+      const dy = Math.sin(ang) * len;
+      ctx.beginPath();
+      ctx.moveTo(x - dx, y - dy);
+      ctx.lineTo(x + dx, y + dy);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function startInPageCanvas(key, cfg, getTargetIndex) {
     const cvs = document.getElementById('tel-cvs-' + key);
     const ctx = cvs.getContext('2d');
-    const stars = Array.from({ length: 75 }, () => ({
+    const stars = Array.from({ length: 95 }, () => ({
       x: Math.random(),
       y: Math.random(),
-      r: Math.random() * 1.4 + 0.3,
-      a: Math.random()
+      r: Math.random() * 1.4 + 0.25,
+      a: Math.random() * Math.PI * 2,
+      spike: Math.random() < 0.14
     }));
 
     function render(now) {
@@ -294,37 +314,94 @@
           cvs.height = h;
         }
         const t = now * 0.001;
-        const slot = Math.floor(t / 15) % cfg.targets.length;
-        const tgt = cfg.targets[slot];
+        const idx = getTargetIndex() % cfg.targets.length;
+        const tgt = cfg.targets[idx];
+        const cx = w * 0.54;
+        const cy = h * 0.48;
+        const rad = Math.min(w, h) * 0.42;
 
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, w, h);
 
-        const grad = ctx.createRadialGradient(w * 0.52, h * 0.48, 8, w * 0.52, h * 0.48, Math.min(w, h) * 0.45);
-        grad.addColorStop(0, key === 'jwst' ? 'rgba(255, 184, 0, 0.22)' : 'rgba(0, 240, 255, 0.20)');
-        grad.addColorStop(0.55, 'rgba(180, 76, 255, 0.08)');
-        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, w, h);
+        const g1 = ctx.createRadialGradient(cx - rad * 0.15, cy - rad * 0.1, 4, cx, cy, rad * 1.15);
+        g1.addColorStop(0, tgt.c1);
+        g1.addColorStop(0.55, tgt.c2);
+        g1.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rad * 1.15, 0, Math.PI * 2);
+        ctx.fill();
 
         for (let i = 0; i < stars.length; i++) {
           const s = stars[i];
-          const tw = 0.35 + 0.65 * Math.abs(Math.sin(t * 1.3 + s.a * 10));
-          ctx.fillStyle = 'rgba(230, 244, 255, ' + tw.toFixed(2) + ')';
+          const tw = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 1.5 + s.a));
+          const sx = s.x * w;
+          const sy = s.y * h;
+          ctx.fillStyle = 'rgba(235,248,255,' + tw.toFixed(2) + ')';
           ctx.beginPath();
-          ctx.arc(s.x * w, s.y * h, s.r, 0, Math.PI * 2);
+          ctx.arc(sx, sy, s.r, 0, Math.PI * 2);
           ctx.fill();
+          if (s.spike && tw > 0.65) {
+            drawSpikes(ctx, sx, sy, 6 + s.r * 3, 'rgba(255,255,255,' + (tw * 0.45).toFixed(2) + ')', t);
+          }
         }
 
-        const cx = w * 0.52 + Math.sin(t * 0.25) * 10;
-        const cy = h * 0.48 + Math.cos(t * 0.2) * 8;
-        ctx.strokeStyle = cfg.accent;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(cx - 24, cy - 24, 48, 48);
+        if (tgt.kind === 'spiral') {
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(0.45 + t * 0.03);
+          ctx.scale(1.15, 0.52);
+          for (let arm = 0; arm < 2; arm++) {
+            ctx.strokeStyle = arm === 0 ? cfg.accent : cfg.secondary;
+            ctx.globalAlpha = 0.52;
+            ctx.lineWidth = 2.2;
+            ctx.beginPath();
+            for (let step = 0; step <= 48; step++) {
+              const frac = step / 48;
+              const ang = frac * Math.PI * 2.4 + arm * Math.PI;
+              const dist = frac * rad * 0.85;
+              const px = Math.cos(ang) * dist;
+              const py = Math.sin(ang) * dist;
+              if (step === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+          }
+          ctx.restore();
+        } else if (tgt.kind === 'nebula') {
+          ctx.save();
+          ctx.strokeStyle = cfg.accent;
+          ctx.globalAlpha = 0.42;
+          ctx.lineWidth = 1.4;
+          for (let f = 0; f < 5; f++) {
+            ctx.beginPath();
+            for (let x = cx - rad * 0.8; x <= cx + rad * 0.8; x += 8) {
+              const norm = (x - cx) / (rad * 0.8);
+              const y = cy + Math.sin(norm * 3.2 + f * 0.9 + t * 0.35) * (rad * 0.35) - (f - 2) * 7;
+              if (x === cx - rad * 0.8) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+          }
+          ctx.restore();
+        } else {
+          ctx.save();
+          ctx.strokeStyle = cfg.accent;
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          for (let px = 20; px < w - 20; px += 4) {
+            const u = (px - 20) / Math.max(1, w - 40);
+            const dip = Math.exp(-Math.pow((u - 0.52) * 14, 2)) * 28;
+            const py = cy + 12 - dip + Math.sin(u * 26 + t * 1.4) * 3;
+            if (px === 20) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        drawSpikes(ctx, cx, cy, 14, cfg.accent, t);
 
         ctx.fillStyle = '#e6f4ff';
         ctx.font = '10px monospace';
-        ctx.fillText('TARGET: ' + tgt.name + ' [' + tgt.band + ']', 10, 16);
+        ctx.fillText(tgt.name + ' [' + tgt.band + ']', 10, 16);
         ctx.fillStyle = cfg.accent;
         ctx.fillText(tgt.inst + ' · RA ' + tgt.ra + ' · DEC ' + tgt.dec, 10, h - 10);
       }
@@ -340,21 +417,21 @@
     card.innerHTML =
       '<div class="tel-head">' +
         '<span class="tel-live"><span class="tel-dot"></span>' + cfg.title + '</span>' +
-        '<span id="tel-cnt-' + key + '" style="font-size:10px;color:#39ff14">SYNCING...</span>' +
+        '<span id="tel-cnt-' + key + '" style="font-size:10px;color:#39ff14">IN-PAGE ART</span>' +
       '</div>' +
       '<div class="tel-stage">' +
-        '<img id="tel-img-' + key + '" alt="' + cfg.title + '" />' +
-        '<canvas id="tel-cvs-' + key + '" style="display:none"></canvas>' +
-        '<div class="tel-overlay" id="tel-ov-' + key + '">' +
+        '<img id="tel-img-' + key + '" alt="' + cfg.title + '" style="display:none" />' +
+        '<canvas id="tel-cvs-' + key + '"></canvas>' +
+        '<div class="tel-overlay" id="tel-ov-' + key + '" style="display:none">' +
           '<div class="tel-cap-title" id="tel-ti-' + key + '">Loading observation feed...</div>' +
           '<div class="tel-cap-meta" id="tel-me-' + key + '">NASA IMAGE API</div>' +
         '</div>' +
       '</div>' +
       '<div class="tel-bar">' +
-        '<span id="tel-st-' + key + '">AUTO-CYCLE 15s</span>' +
+        '<span id="tel-st-' + key + '">ARTISTIC FIELD · TARGET 1/' + cfg.targets.length + '</span>' +
         '<div class="tel-actions">' +
-          '<button class="tel-btn active" id="tel-m-feed-' + key + '">LIVE FEED</button>' +
-          '<button class="tel-btn" id="tel-m-inpage-' + key + '">IN-PAGE VIEW</button>' +
+          '<button class="tel-btn active" id="tel-m-inpage-' + key + '">IN-PAGE VIEW</button>' +
+          '<button class="tel-btn" id="tel-m-feed-' + key + '">LIVE FEED</button>' +
           '<button class="tel-btn" id="tel-prev-' + key + '">&lt;</button>' +
           '<button class="tel-btn" id="tel-next-' + key + '">&gt;</button>' +
         '</div>' +
@@ -374,11 +451,23 @@
     const mFeed = document.getElementById('tel-m-feed-' + key);
     const mInpage = document.getElementById('tel-m-inpage-' + key);
 
-    startInPageCanvas(key, cfg);
-
     let items = cfg.fallback.slice();
-    let idx = 0;
-    let mode = 'feed';
+    let imgIdx = 0;
+    let artIdx = 0;
+    let mode = 'inpage';
+
+    startInPageCanvas(key, cfg, () => artIdx);
+
+    function syncStatus() {
+      if (mode === 'inpage') {
+        const tgt = cfg.targets[artIdx % cfg.targets.length];
+        cnt.textContent = 'IN-PAGE ART';
+        st.textContent = tgt.name + ' · ' + ((artIdx % cfg.targets.length) + 1) + '/' + cfg.targets.length;
+      } else {
+        cnt.textContent = 'LIVE · ' + (imgIdx + 1) + '/' + items.length;
+        st.textContent = 'NASA FEED · ' + ((imgIdx + 1) + '/' + items.length);
+      }
+    }
 
     function setMode(nextMode) {
       mode = nextMode;
@@ -388,27 +477,26 @@
       cvs.style.display = isFeed ? 'none' : 'block';
       mFeed.classList.toggle('active', isFeed);
       mInpage.classList.toggle('active', !isFeed);
-      cnt.textContent = isFeed ? ('LIVE · ' + (idx + 1) + '/' + items.length) : 'IN-PAGE STREAM';
+      syncStatus();
     }
 
     function renderItem(n) {
       if (!items.length) return;
-      idx = ((n % items.length) + items.length) % items.length;
-      const cur = items[idx];
+      imgIdx = ((n % items.length) + items.length) % items.length;
+      const cur = items[imgIdx];
       img.onerror = () => {
         if (items.length > 1) {
-          items.splice(idx, 1);
-          renderItem(idx);
+          items.splice(imgIdx, 1);
+          renderItem(imgIdx);
         }
       };
       img.src = cur.url;
       ti.textContent = cur.title;
-      me.textContent = cur.date + ' · FEED #' + (idx + 1);
-      if (mode === 'feed') cnt.textContent = 'LIVE · ' + (idx + 1) + '/' + items.length;
+      me.textContent = cur.date + ' · FEED #' + (imgIdx + 1);
+      syncStatus();
     }
 
     async function fetchLive() {
-      if (mode === 'feed') cnt.textContent = 'POLLING...';
       try {
         const res = await fetch('https://images-api.nasa.gov/search?q=' + encodeURIComponent(cfg.query) + '&media_type=image&year_start=2022');
         if (!res.ok) throw new Error('HTTP');
@@ -427,23 +515,38 @@
         if (parsed.length) {
           items = parsed;
           renderItem(0);
-          st.textContent = 'LIVE · ' + new Date().toLocaleTimeString();
-          return;
         }
-        throw new Error('EMPTY');
       } catch {
-        renderItem(idx);
-        st.textContent = 'CACHED · ' + new Date().toLocaleTimeString();
+        renderItem(imgIdx);
       }
     }
 
     mFeed.onclick = () => setMode('feed');
     mInpage.onclick = () => setMode('inpage');
-    document.getElementById('tel-prev-' + key).onclick = () => renderItem(idx - 1);
-    document.getElementById('tel-next-' + key).onclick = () => renderItem(idx + 1);
+    document.getElementById('tel-prev-' + key).onclick = () => {
+      if (mode === 'inpage') {
+        artIdx = (artIdx - 1 + cfg.targets.length) % cfg.targets.length;
+        syncStatus();
+      } else {
+        renderItem(imgIdx - 1);
+      }
+    };
+    document.getElementById('tel-next-' + key).onclick = () => {
+      if (mode === 'inpage') {
+        artIdx = (artIdx + 1) % cfg.targets.length;
+        syncStatus();
+      } else {
+        renderItem(imgIdx + 1);
+      }
+    };
 
+    syncStatus();
     await fetchLive();
-    setInterval(() => renderItem(idx + 1), 15000);
+    setInterval(() => {
+      artIdx = (artIdx + 1) % cfg.targets.length;
+      if (mode === 'inpage') syncStatus();
+      else renderItem(imgIdx + 1);
+    }, 15000);
     setInterval(fetchLive, 180000);
   }
 
