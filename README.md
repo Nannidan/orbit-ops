@@ -1,32 +1,23 @@
-# React + TypeScript + Vite
+# ORBIT // OPS — Deep-Space Logarithmic Radar & Live ISS/NASA Telemetry
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+[![CI](https://github.com/Nannidan/orbit-ops/actions/workflows/ci.yml/badge.svg)](https://github.com/Nannidan/orbit-ops/actions)
+**Live Demo:** [https://orbit-ops-theta.vercel.app/](https://orbit-ops-theta.vercel.app/)
 
-Currently, two official plugins are available:
+Real-time orbital and deep-space mission telemetry dashboard built with **React 19**, **TypeScript**, **SVG Data Visualization**, and **Tailwind CSS v4**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Architecture & Engineering Decisions
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Logarithmic Deep-Space Radar (`src/components/SpaceVisuals.tsx`):** Maps spacecraft spanning 6 orders of magnitude—from Low Earth Orbit (ISS, Hubble) to the L2 Lagrange point (JWST) and interstellar space (Voyager 1 & 2, New Horizons)—onto a single interactive logarithmic SVG polar radar.
+- **Live 5-Second ISS Polling & Dead-Reckoning (`src/hooks/useSpaceApis.ts`):** Streams real-time latitude, longitude, altitude, and velocity from `wheretheiss.at` alongside NASA Near-Earth Object (NEO) close-approach feeds and upcoming launch manifests.
+- **Resilient Telemetry Fallbacks:** Graceful degradation and explicit status indicators ensure mission telemetry remains inspectable even during upstream API rate limits.
 
-## Expanding the Oxlint configuration
+## Local Development
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
+npm run lint
+npm run build
 ```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
