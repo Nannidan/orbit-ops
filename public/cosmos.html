@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>ORBIT // OPS — COSMOS SUITE (0.5x)</title>
+<style>
+  :root {
+    --bg: #03050a;
+    --panel: rgba(8, 13, 24, 0.86);
+    --border: rgba(0, 240, 255, 0.24);
+    --cyan: #00f0ff;
+    --pink: #ff2a85;
+    --green: #39ff14;
+    --purple: #b44cff;
+    --amber: #ffb800;
+    --text: #e6f4ff;
+    --muted: #7c93b0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  canvas#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .hud-top {
+    position: fixed; top: 8px; left: 8px; right: 8px; z-index: 10;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 7px 10px; backdrop-filter: blur(8px);
+  }
+  .brand { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: var(--cyan); }
+  .brand span { color: var(--pink); }
+  .tabs { display: flex; gap: 5px; flex-wrap: wrap; }
+  .tab {
+    background: rgba(255,255,255,0.04); color: var(--muted); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 7px; padding: 5px 9px; font-size: 11px; font-family: inherit; cursor: pointer;
+  }
+  .tab.active { background: rgba(0,240,255,0.16); color: var(--cyan); border-color: var(--cyan); font-weight: 700; }
+  .drawer-toggle {
+    background: rgba(180,76,255,0.18); color: var(--text); border: 1px solid var(--purple);
+    border-radius: 7px; padding: 5px 8px; font-size: 11px; font-family: inherit; cursor: pointer;
+  }
+  .panel {
+    position: fixed; left: 8px; bottom: 8px; z-index: 10; width: min(350px, calc(100vw - 16px));
+    max-height: 46vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 9px 10px; backdrop-filter: blur(8px); font-size: 11px;
+  }
+  .panel.hidden { display: none; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+  .chips { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 6px; }
+  .chip {
+    background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 6px; padding: 4px 7px; font-size: 10px; font-family: inherit; cursor: pointer;
+  }
+  .chip.on { border-color: var(--cyan); color: var(--cyan); background: rgba(0,240,255,0.14); }
+  .chip.warn { border-color: var(--pink); color: var(--pink); background: rgba(255,42,133,0.14); }
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 6px; }
+  .stat { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 5px; }
+  .stat b { display: block; font-size: 12px; color: var(--cyan); }
+  .stat small { color: var(--muted); font-size: 9px; }
+  .badge { padding: 2px 7px; border-radius: 99px; font-size: 10px; font-weight: 700; border: 1px solid currentColor; }
+  label.slider { display: block; margin-bottom: 6px; color: var(--muted); font-size: 10px; }
+  label.slider span { float: right; color: var(--cyan); }
+  input[type=range] { width: 100%; accent-color: var(--cyan); margin-top: 2px; }
+  input[type=text], input[type=number], select {
+    background: rgba(0,0,0,0.45); color: var(--text); border: 1px solid rgba(0,240,255,0.28);
+    border-radius: 6px; padding: 4px 6px; font-size: 11px; font-family: inherit; width: 100%;
+  }
+  .obj-list { max-height: 110px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .info-box {
+    background: rgba(0,240,255,0.06); border: 1px solid rgba(0,240,255,0.22);
+    border-radius: 7px; padding: 6px; margin-bottom: 6px; line-height: 1.45;
+  }
+  canvas#spark { width: 100%; height: 48px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; display: block; margin-top: 4px; }
+  .baseline { font-size: 9px; color: var(--muted); border-top: 1px solid rgba(255,255,255,0.08); padding-top: 5px; margin-top: 4px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 5px; }
+  .hint { position: fixed; right: 8px; bottom: 8px; z-index: 9; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; font-size: 10px; color: var(--muted); pointer-events: none; }
+  @media (max-width: 680px) { .hint { display: none; } }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div class="hud-top">
+  <div class="brand">ORBIT // <span>OPS</span> <small style="color:var(--muted)">0.5x</small></div>
+  <div class="tabs">
+    <button class="tab active" data-tab="tracker">LIVE TRACKER</button>
+    <button class="tab" data-tab="kessler">KESSLER SIM</button>
+    <button class="tab" data-tab="universe">UNIVERSE 3D</button>
+  </div>
+  <button class="drawer-toggle" id="toggleHud">HUD</button>
+</div>
+
+<div class="panel" id="panel-tracker">
+  <div class="stat-grid">
+    <div class="stat"><b id="tr-total">0</b><small>TRACKED (SIM)</small></div>
+    <div class="stat"><b id="tr-iss" style="color:var(--green)">SYNC...</b><small>ISS LINK</small></div>
+    <div class="stat"><b id="tr-fps" style="color:var(--purple)">60</b><small>FPS</small></div>
+  </div>
+  <div class="chips" id="tr-filters">
+    <button class="chip on" data-f="all">ALL</button>
+    <button class="chip" data-f="active">ACTIVE</button>
+    <button class="chip" data-f="debris">DEBRIS</button>
+    <button class="chip" data-f="station">STATIONS</button>
+    <button class="chip" data-f="rocket">R/B</button>
+  </div>
+  <div class="info-box" id="tr-selected">Tap any satellite or debris dot to inspect its 3D orbit. Drag to rotate, pinch/scroll to zoom.</div>
+  <div class="baseline">Nov 2026 ESA/CelesTrak Baseline: ~13,800 active payloads · ~36,500 tracked objects &gt;10 cm · ~1.1M fragments 1–10 cm</div>
+</div>
+
+<div class="panel hidden" id="panel-kessler">
+  <div class="row">
+    <span style="color:var(--pink);font-weight:700">CASCADE ENGINE</span>
+    <span class="badge" id="ks-threat" style="color:var(--green)">NOMINAL</span>
+  </div>
+  <div class="stat-grid">
+    <div class="stat"><b id="ks-count">0</b><small>OBJECTS / 900</small></div>
+    <div class="stat"><b id="ks-hits" style="color:var(--pink)">0</b><small>IMPACTS</small></div>
+    <div class="stat"><b id="ks-ke" style="color:var(--amber)">0 MJ</b><small>LAST IMPACT</small></div>
+  </div>
+  <div class="chips">
+    <button class="chip warn" id="ks-strike">ASAT STRIKE</button>
+    <button class="chip" data-preset="iss">ISS SHELL</button>
+    <button class="chip" data-preset="starlink">MEGA-LEO</button>
+    <button class="chip" data-preset="fengyun">FENGYUN-1C</button>
+    <button class="chip" data-preset="geo">GEO RING</button>
+    <button class="chip" id="ks-reset">RESET</button>
+  </div>
+  <label class="slider">Time Warp <span id="v-warp">1.0x</span><input id="s-warp" type="range" min="0.2" max="4" step="0.1" value="1" /></label>
+  <label class="slider">Fragment Yield <span id="v-yield">18</span><input id="s-yield" type="range" min="6" max="40" step="2" value="18" /></label>
+  <label class="slider">Collision Radius <span id="v-rad">1.0x</span><input id="s-rad" type="range" min="0.5" max="2.5" step="0.1" value="1" /></label>
+  <div style="font-size:10px;color:var(--muted)">Tap anywhere in orbit to trigger kinetic strike · Burnups: <b id="ks-burn" style="color:var(--amber)">0</b></div>
+  <canvas id="spark" width="320" height="48"></canvas>
+</div>
+
+<div class="panel hidden" id="panel-universe">
+  <div class="row">
+    <span style="color:var(--purple);font-weight:700">LOG SCALE MODEL</span>
+    <span id="un-scale-readout" style="color:var(--cyan);font-weight:700">10^7.0 m</span>
+  </div>
+  <label class="slider">Log10 Scale (m) <span id="un-unit">10,000 km</span>
+    <input id="s-log" type="range" min="7" max="26.944" step="0.02" value="7.3" />
+  </label>
+  <div class="obj-list" id="un-list"></div>
+  <div class="info-box" id="un-info">Select any cosmic object to fly there smoothly. Drag to orbit the 3D field.</div>
+  <details>
+    <summary style="cursor:pointer;color:var(--cyan);font-size:10px">+ Custom Object Plotter (localStorage)</summary>
+    <div class="form-grid">
+      <input id="co-name" type="text" placeholder="Name (e.g. Ton 618)" />
+      <input id="co-log" type="number" step="0.1" min="7" max="26.9" placeholder="Log10 m (e.g. 25.5)" />
+      <input id="co-ra" type="number" step="1" placeholder="RA deg (0-360)" />
+      <input id="co-dec" type="number" step="1" placeholder="Dec deg (-90..90)" />
+    </div>
+    <div class="row" style="margin-top:5px;margin-bottom:0">
+      <button class="chip on" id="co-add">ADD OBJECT</button>
+      <button class="chip warn" id="co-clear">CLEAR CUSTOM</button>
+    </div>
+  </details>
+</div>
+
+<div class="hint">Drag: Orbit · Wheel/Pinch: Zoom · Tap: Inspect / Strike</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('scene');
+  const ctx = canvas.getContext('2d');
+  const spark = document.getElementById('spark');
+  const sctx = spark.getContext('2d');
+  let W = 0, H = 0, DPR = 1;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const SCALE_FACTOR = 0.5;
+  let activeTab = 'tracker';
+  let rotY = 0.6, rotX = 0.32, camZoom = 1.0;
+  let drag = false, lastX = 0, lastY = 0, moved = 0, pinchDist = 0;
+
+  const stars = Array.from({ length: 420 }, () => {
+    const th = Math.random() * Math.PI * 2;
+    const ph = Math.acos(2 * Math.random() - 1);
+    return {
+      x: Math.sin(ph) * Math.cos(th),
+      y: Math.cos(ph),
+      z: Math.sin(ph) * Math.sin(th),
+      s: Math.random() * 1.4 + 0.3,
+      c: Math.random() < 0.15 ? '#00f0ff' : (Math.random() < 0.15 ? '#b44cff' : '#ffffff')
+    };
+  });
+
+  function project(x, y, z, scalePx) {
+    const cy = Math.cos(rotY), sy = Math.sin(rotY);
+    const cx = Math.cos(rotX), sx = Math.sin(rotX);
+    const x1 = x * cy - z * sy;
+    const z1 = x * sy + z * cy;
+    const y2 = y * cx - z1 * sx;
+    const z2 = y * sx + z1 * cx;
+    const dist = 5.2 / camZoom;
+    const f = scalePx / (dist - z2 * 0.42);
+    if (dist - z2 * 0.42 <= 0.25) return null;
+    return { x: W * 0.5 + x1 * f, y: H * 0.5 - y2 * f, z: z2, s: f };
+  }
+
+  function drawStarfield() {
+    const r = Math.min(W, H) * 0.8;
+    for (let i = 0; i < stars.length; i++) {
+      const st = stars[i];
+      const p = project(st.x * 4.2, st.y * 4.2, st.z * 4.2, r);
+      if (!p || p.x < -5 || p.x > W + 5 || p.y < -5 || p.y > H + 5) continue;
+      ctx.globalAlpha = 0.35 + (st.s / 2) * 0.45;
+      ctx.fillStyle = st.c;
+      ctx.fillRect(p.x, p.y, st.s, st.s);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawEarth(earthR, scalePx) {
+    const center = project(0, 0, 0, scalePx);
+    if (!center) return;
+    const radPx = earthR * center.s;
+    const g = ctx.createRadialGradient(center.x, center.y, radPx * 0.85, center.x, center.y, radPx * 1.25);
+    g.addColorStop(0, 'rgba(0, 240, 255, 0.26)');
+    g.addColorStop(0.55, 'rgba(0, 120, 255, 0.10)');
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(center.x, center.y, radPx * 1.25, 0, Math.PI * 2);
+    ctx.fill();
+
+    const body = ctx.createRadialGradient(center.x - radPx * 0.3, center.y - radPx * 0.3, radPx * 0.1, center.x, center.y, radPx);
+    body.addColorStop(0, '#0f2847');
+    body.addColorStop(0.7, '#061124');
+    body.addColorStop(1, '#02060d');
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(center.x, center.y, radPx, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.18)';
+    ctx.lineWidth = 0.8;
+    for (let lat = -60; lat <= 60; lat += 30) {
+      const lr = (lat * Math.PI) / 180;
+      const rr = Math.cos(lr) * earthR;
+      const yy = Math.sin(lr) * earthR;
+      ctx.beginPath();
+      let started = false;
+      for (let a = 0; a <= 36; a++) {
+        const th = (a / 36) * Math.PI * 2;
+        const p = project(Math.cos(th) * rr, yy, Math.sin(th) * rr, scalePx);
+        if (p && p.z > -0.15) {
+          if (!started) { ctx.moveTo(p.x, p.y); started = true; } else ctx.lineTo(p.x, p.y);
+        } else started = false;
+      }
+      ctx.stroke();
+    }
+    for (let lon = 0; lon < 180; lon += 30) {
+      const lr = (lon * Math.PI) / 180;
+      ctx.beginPath();
+      let started = false;
+      for (let a = 0; a <= 36; a++) {
+        const ph = (a / 36) * Math.PI * 2;
+        const xx = Math.sin(ph) * Math.cos(lr) * earthR;
+        const yy = Math.cos(ph) * earthR;
+        const zz = Math.sin(ph) * Math.sin(lr) * earthR;
+        const p = project(xx, yy, zz, scalePx);
+        if (p && p.z > -0.15) {
+          if (!started) { ctx.moveTo(p.x, p.y); started = true; } else ctx.lineTo(p.x, p.y);
+        } else started = false;
+      }
+      ctx.stroke();
+    }
+  }
+
+  function orbitalPos(sat, t) {
+    const M = sat.phase + t * sat.speed;
+    const r = sat.a * (1 - sat.e * sat.e) / (1 + sat.e * Math.cos(M));
+    const xo = r * Math.cos(M);
+    const zo = r * Math.sin(M);
+    const ci = Math.cos(sat.inc), si = Math.sin(sat.inc);
+    const co = Math.cos(sat.raan), so = Math.sin(sat.raan);
+    const y1 = zo * si;
+    const z1 = zo * ci;
+    return {
+      x: xo * co - z1 * so,
+      y: y1,
+      z: xo * so + z1 * co
+    };
+  }
+
+  const EARTH_R = 1.0 * SCALE_FACTOR;
+  const SHELLS = [
+    { name: 'LEO', r: EARTH_R * 1.18, c: 'rgba(0,240,255,0.12)' },
+    { name: 'MEO', r: EARTH_R * 1.85, c: 'rgba(180,76,255,0.10)' },
+    { name: 'GEO', r: EARTH_R * 2.75, c: 'rgba(255,184,0,0.10)' }
+  ];
+
+  const sats = [];
+  let trFilter = 'all';
+  let selectedSat = null;
+  let issLive = null;
+
+  function altToRadius(altKm) {
+    return EARTH_R * (1 + Math.log10(1 + altKm / 320) * 0.95);
+  }
+
+  function buildTrackerCatalog() {
+    sats.length = 0;
+    const add = (name, type, group, altKm, incDeg, e, color) => {
+      const a = altToRadius(altKm);
+      const speed = 0.55 / Math.pow(a / EARTH_R, 1.45);
+      sats.push({
+        id: 25544 + sats.length * 7,
+        name, type, group, altKm, incDeg,
+        a, e,
+        inc: (incDeg * Math.PI) / 180,
+        raan: Math.random() * Math.PI * 2,
+        phase: Math.random() * Math.PI * 2,
+        speed, color,
+        vel: (Math.sqrt(398600 / (6371 + altKm))).toFixed(2),
+        sx: -999, sy: -999
+      });
+    };
+    add('ISS (ZARYA)', 'station', 'Station', 420, 51.6, 0.0005, '#39ff14');
+    add('TIANGONG (CSS)', 'station', 'Station', 390, 41.5, 0.0006, '#39ff14');
+    add('HUBBLE SPACE TELESCOPE', 'active', 'Science', 535, 28.5, 0.0003, '#00f0ff');
+    for (let i = 0; i < 180; i++) add('STARLINK-' + (3000 + i), 'active', 'Starlink', 540 + (i % 4) * 15, 53.2 + (i % 3) * 10, 0.001, '#00f0ff');
+    for (let i = 0; i < 70; i++) add('ONEWEB-' + (100 + i), 'active', 'OneWeb', 1200, 87.9, 0.001, '#38bdf8');
+    for (let i = 0; i < 55; i++) add('AMAZON-LEO-' + (10 + i), 'active', 'Amazon Leo', 610, 51.9, 0.001, '#2dd4bf');
+    for (let i = 0; i < 36; i++) add('GPS-III SV' + (i + 1), 'active', 'GPS MEO', 20200, 55, 0.01, '#b44cff');
+    for (let i = 0; i < 42; i++) add('GEO-COMSAT-' + (i + 1), 'active', 'GEO', 35786, (Math.random() - 0.5) * 4, 0.001, '#ffb800');
+    for (let i = 0; i < 45; i++) add('SL-16 R/B #' + (i + 1), 'rocket', 'Rocket Body', 620 + Math.random() * 900, 71 + Math.random() * 27, 0.015, '#ff8800');
+    for (let i = 0; i < 70; i++) add('FENGYUN-1C DEB-' + i, 'debris', 'Fengyun-1C Cloud', 850 + (Math.random() - 0.5) * 260, 98.8 + (Math.random() - 0.5) * 4, 0.02, '#ff2a85');
+    for (let i = 0; i < 55; i++) add('COSMOS-IRIDIUM DEB-' + i, 'debris', 'Cosmos-Iridium', 780 + (Math.random() - 0.5) * 220, 86.4 + (Math.random() - 0.5) * 6, 0.02, '#ff2a85');
+    for (let i = 0; i < 45; i++) add('KOSMOS-1408 DEB-' + i, 'debris', 'Kosmos-1408 ASAT', 485 + (Math.random() - 0.5) * 160, 82.6 + (Math.random() - 0.5) * 3, 0.015, '#ff4d9e');
+    document.getElementById('tr-total').textContent = sats.length;
+  }
+  buildTrackerCatalog();
+
+  async function syncISS() {
+    const el = document.getElementById('tr-iss');
+    try {
+      const r = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+      if (!r.ok) throw new Error();
+      const d = await r.json();
+      issLive = d;
+      const iss = sats[0];
+      iss.altKm = Math.round(d.altitude);
+      iss.vel = (d.velocity / 3600).toFixed(2);
+      el.textContent = 'LIVE API';
+      el.style.color = '#39ff14';
+    } catch {
+      el.textContent = 'KEPLERIAN';
+      el.style.color = '#ffb800';
+    }
+  }
+  syncISS();
+  setInterval(syncISS, 15000);
+
+  let ksBodies = [], ksSparks = [], ksHistory = [], ksHits = 0, ksBurnups = 0, ksLastKE = 0;
+  let ksWarp = 1.0, ksYield = 18, ksRadMul = 1.0;
+  const KS_MAX = 900;
+  const MU = 0.55;
+
+  function spawnOrbitBody(r, inc, raan, phase, isDebris, dv = 0) {
+    const speed = Math.sqrt(MU / r);
+    const cp = Math.cos(phase), sp = Math.sin(phase);
+    const x0 = r * cp, z0 = r * sp;
+    const vx0 = -speed * sp, vz0 = speed * cp;
+    const ci = Math.cos(inc), si = Math.sin(inc);
+    const co = Math.cos(raan), so = Math.sin(raan);
+    const rot = (x, y, z) => {
+      const y1 = y * ci + z * si;
+      const z1 = -y * si + z * ci;
+      return [x * co - z1 * so, y1, x * so + z1 * co];
+    };
+    const [x, y, z] = rot(x0, 0, z0);
+    const [vx, vy, vz] = rot(vx0, 0, vz0);
+    ksBodies.push({
+      x, y, z,
+      vx: vx + (Math.random() - 0.5) * dv,
+      vy: vy + (Math.random() - 0.5) * dv,
+      vz: vz + (Math.random() - 0.5) * dv,
+      debris: isDebris,
+      age: 0,
+      mass: isDebris ? 2 + Math.random() * 15 : 220 + Math.random() * 400
+    });
+  }
+
+  function loadKesslerPreset(name) {
+    ksBodies = [];
+    ksSparks = [];
+    ksHistory = [];
+    ksHits = 0;
+    ksBurnups = 0;
+    ksLastKE = 0;
+    const count = name === 'starlink' ? 240 : name === 'geo' ? 140 : 180;
+    for (let i = 0; i < count; i++) {
+      let r = EARTH_R * (1.16 + Math.random() * 0.25);
+      let inc = (Math.random() * 98 * Math.PI) / 180;
+      if (name === 'iss') { r = EARTH_R * (1.14 + Math.random() * 0.12); inc = (51.6 + (Math.random() - 0.5) * 18) * Math.PI / 180; }
+      if (name === 'starlink') { r = EARTH_R * (1.18 + Math.random() * 0.08); inc = (53 + (Math.random() - 0.5) * 28) * Math.PI / 180; }
+      if (name === 'fengyun') { r = EARTH_R * (1.28 + Math.random() * 0.14); inc = (98 + (Math.random() - 0.5) * 12) * Math.PI / 180; }
+      if (name === 'geo') { r = EARTH_R * (2.35 + Math.random() * 0.16); inc = (Math.random() - 0.5) * 0.15; }
+      spawnOrbitBody(r, inc, Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, Math.random() < 0.25);
+    }
+    updateKesslerUI();
+  }
+  loadKesslerPreset('starlink');
+
+  function detonateAt(b, relSpeed) {
+    ksHits++;
+    const vKmS = Math.max(4.5, Math.min(15.2, relSpeed * 11));
+    ksLastKE = Math.round(0.5 * (b.mass || 60) * vKmS * vKmS);
+    ksSparks.push({ x: b.x, y: b.y, z: b.z, life: 1.0 });
+    const room = KS_MAX - ksBodies.length;
+    const n = Math.min(ksYield, Math.max(0, room));
+    for (let k = 0; k < n; k++) {
+      const spread = 0.09 + Math.random() * 0.14;
+      const th = Math.random() * Math.PI * 2;
+      const ph = Math.acos(2 * Math.random() - 1);
+      ksBodies.push({
+        x: b.x, y: b.y, z: b.z,
+        vx: b.vx + Math.sin(ph) * Math.cos(th) * spread,
+        vy: b.vy + Math.cos(ph) * spread,
+        vz: b.vz + Math.sin(ph) * Math.sin(th) * spread,
+        debris: true,
+        age: 0,
+        mass: 0.8 + Math.random() * 8
+      });
+    }
+  }
+
+  function triggerASAT() {
+    if (!ksBodies.length) return;
+    const target = ksBodies[Math.floor(Math.random() * ksBodies.length)];
+    detonateAt(target, 1.15);
+  }
+
+  function stepKessler(dt) {
+    const h = Math.min(dt, 0.033) * ksWarp * 0.9;
+    const grid = new Map();
+    const cellSize = 0.065 * ksRadMul;
+    const hitDistSq = (0.048 * ksRadMul) ** 2;
+    const burnR = EARTH_R * 1.07;
+
+    for (let i = ksBodies.length - 1; i >= 0; i--) {
+      const b = ksBodies[i];
+      b.age += h;
+      const r2 = b.x * b.x + b.y * b.y + b.z * b.z;
+      const r = Math.sqrt(r2);
+      if (r < burnR) {
+        ksBurnups++;
+        ksSparks.push({ x: b.x, y: b.y, z: b.z, life: 0.65, burn: true });
+        ksBodies.splice(i, 1);
+        continue;
+      }
+      const invR3 = -MU / (r2 * r);
+      b.vx += b.x * invR3 * h;
+      b.vy += b.y * invR3 * h;
+      b.vz += b.z * invR3 * h;
+      if (r < EARTH_R * 1.13) {
+        const drag = 1 - 0.06 * h;
+        b.vx *= drag; b.vy *= drag; b.vz *= drag;
+      }
+      b.x += b.vx * h;
+      b.y += b.vy * h;
+      b.z += b.vz * h;
+      if (b.age > 0.7) {
+        const gx = Math.floor(b.x / cellSize);
+        const gy = Math.floor(b.y / cellSize);
+        const gz = Math.floor(b.z / cellSize);
+        const key = gx + ',' + gy + ',' + gz;
+        let bucket = grid.get(key);
+        if (!bucket) { bucket = []; grid.set(key, bucket); }
+        bucket.push(i);
+      }
+    }
+
+    const collided = new Set();
+    let frameHits = 0;
+    for (const bucket of grid.values()) {
+      if (bucket.length < 2 || frameHits > 3) continue;
+      for (let a = 0; a < bucket.length; a++) {
+        for (let b = a + 1; b < bucket.length; b++) {
+          const i1 = bucket[a], i2 = bucket[b];
+          if (collided.has(i1) || collided.has(i2)) continue;
+          const p1 = ksBodies[i1], p2 = ksBodies[i2];
+          if (!p1 || !p2) continue;
+          const dx = p1.x - p2.x, dy = p1.y - p2.y, dz = p1.z - p2.z;
+          if (dx * dx + dy * dy + dz * dz < hitDistSq) {
+            const dvx = p1.vx - p2.vx, dvy = p1.vy - p2.vy, dvz = p1.vz - p2.vz;
+            const rel = Math.sqrt(dvx * dvx + dvy * dvy + dvz * dvz);
+            if (rel > 0.18) {
+              collided.add(i1);
+              collided.add(i2);
+              detonateAt(p1, rel);
+              frameHits++;
+              break;
+            }
+          }
+        }
+      }
+    }
+    if (collided.size) {
+      ksBodies = ksBodies.filter((_, idx) => !collided.has(idx));
+    }
+    for (let i = ksSparks.length - 1; i >= 0; i--) {
+      ksSparks[i].life -= dt * 1.4;
+      if (ksSparks[i].life <= 0) ksSparks.splice(i, 1);
+    }
+    if (Math.random() < 0.25) {
+      ksHistory.push(ksBodies.length);
+      if (ksHistory.length > 80) ksHistory.shift();
+      updateKesslerUI();
+    }
+  }
+
+  function updateKesslerUI() {
+    document.getElementById('ks-count').textContent = ksBodies.length;
+    document.getElementById('ks-hits').textContent = ksHits;
+    document.getElementById('ks-ke').textContent = ksLastKE + ' MJ';
+    document.getElementById('ks-burn').textContent = ksBurnups;
+    const badge = document.getElementById('ks-threat');
+    if (ksBodies.length > 680 || ksHits > 20) { badge.textContent = 'KESSLER CASCADE'; badge.style.color = '#ff2a85'; }
+    else if (ksBodies.length > 420 || ksHits > 8) { badge.textContent = 'CRITICAL'; badge.style.color = '#ff8800'; }
+    else if (ksHits > 0) { badge.textContent = 'ELEVATED'; badge.style.color = '#ffb800'; }
+    else { badge.textContent = 'NOMINAL'; badge.style.color = '#39ff14'; }
+
+    sctx.clearRect(0, 0, spark.width, spark.height);
+    if (ksHistory.length > 1) {
+      sctx.strokeStyle = '#ff2a85';
+      sctx.lineWidth = 1.6;
+      sctx.beginPath();
+      ksHistory.forEach((v, i) => {
+        const x = (i / (ksHistory.length - 1)) * spark.width;
+        const y = spark.height - (v / KS_MAX) * (spark.height - 6) - 3;
+        if (i === 0) sctx.moveTo(x, y); else sctx.lineTo(x, y);
+      });
+      sctx.stroke();
+    }
+  }
+
+  const BASE_UNIVERSE = [
+    { name: 'LEO / ISS', log: 7.0, ra: 15, dec: 10, color: '#39ff14', kind: 'planet', desc: 'Low Earth Orbit (~420 km altitude, 10^7 m Earth-scale frame).' },
+    { name: 'Earth', log: 7.11, ra: 0, dec: 0, color: '#00f0ff', kind: 'planet', desc: 'Diameter 12,742 km. Reference origin for the cosmic ladder.' },
+    { name: 'Moon Orbit', log: 8.58, ra: 42, dec: -12, color: '#cbd5e1', kind: 'planet', desc: '384,400 km average Earth-Moon separation.' },
+    { name: 'JWST (L2)', log: 9.18, ra: 195, dec: 8, color: '#ffb800', kind: 'probe', desc: 'James Webb Space Telescope at Sun-Earth L2 (~1.5M km).' },
+    { name: 'Parker Solar Probe', log: 10.8, ra: 280, dec: -4, color: '#ff8800', kind: 'probe', desc: 'Diving through the solar corona inside Mercury orbit.' },
+    { name: 'Sun (1 AU)', log: 11.17, ra: 110, dec: 0, color: '#ffe066', kind: 'star', desc: '149.6 million km from Earth. Powers the heliosphere.' },
+    { name: 'Jupiter Orbit', log: 11.89, ra: 230, dec: 5, color: '#f59e0b', kind: 'planet', desc: '5.2 AU — gravitational shield of the inner Solar System.' },
+    { name: 'Voyager 1', log: 13.39, ra: 257, dec: 12, color: '#00f0ff', kind: 'probe', desc: '~165+ AU in interstellar space, farthest human spacecraft.' },
+    { name: 'Oort Cloud', log: 15.85, ra: 90, dec: 35, color: '#64748b', kind: 'nebula', desc: 'Spherical icy reservoir up to ~1 light-year across.' },
+    { name: 'Proxima Centauri', log: 16.6, ra: 217, dec: -62, color: '#ff5555', kind: 'star', desc: '4.24 light-years — closest known star to the Sun.' },
+    { name: 'Orion Nebula (M42)', log: 19.1, ra: 83, dec: -5, color: '#ff2a85', kind: 'nebula', desc: '1,344 light-years away — active stellar nursery.' },
+    { name: 'Crab Nebula (M1)', log: 19.79, ra: 84, dec: 22, color: '#00f0ff', kind: 'nebula', desc: '6,500 ly — supernova remnant of SN 1054 with central pulsar.' },
+    { name: 'Pillars of Creation', log: 19.82, ra: 274, dec: -13, color: '#b44cff', kind: 'nebula', desc: 'Eagle Nebula star-forming trunks ~6,500–7,000 ly away.' },
+    { name: 'Sagittarius A*', log: 20.4, ra: 266, dec: -29, color: '#ff8800', kind: 'bh', desc: '26,670 ly — 4.3 million solar-mass supermassive black hole.' },
+    { name: 'Milky Way Disk', log: 21.0, ra: 180, dec: 0, color: '#00f0ff', kind: 'galaxy', desc: '~105,700 light-years across, 100–400 billion stars.' },
+    { name: 'Andromeda (M31)', log: 22.38, ra: 10, dec: 41, color: '#b44cff', kind: 'galaxy', desc: '2.54 million light-years — nearest major spiral galaxy.' },
+    { name: 'Virgo Supercluster', log: 23.72, ra: 187, dec: 12, color: '#38bdf8', kind: 'web', desc: 'Home supercluster spanning ~110 million light-years.' },
+    { name: 'Laniakea Supercluster', log: 24.69, ra: 158, dec: -46, color: '#ff2a85', kind: 'web', desc: '520 million ly gravitational basin flowing toward Great Attractor.' },
+    { name: 'Sloan Great Wall', log: 25.12, ra: 170, dec: 2, color: '#39ff14', kind: 'web', desc: '1.38 billion light-year cosmic filament of galaxies.' },
+    { name: 'Observable Horizon (CMB)', log: 26.944, ra: 0, dec: 0, color: '#00f0ff', kind: 'cmb', desc: '93 billion light-years diameter (8.8 × 10^26 m cosmic horizon).' }
+  ];
+
+  const CUSTOM_KEY = 'orbit_ops_custom_universe_v1';
+  let customObjs = [];
+  try { customObjs = JSON.parse(localStorage.getItem(CUSTOM_KEY) || '[]'); } catch { customObjs = []; }
+  let camLog = 7.3, targetLog = 7.3;
+
+  function allUniverseObjs() { return BASE_UNIVERSE.concat(customObjs); }
+
+  function formatDistance(logM) {
+    const m = Math.pow(10, logM);
+    if (logM < 9.5) return (m / 1e3).toLocaleString(undefined, { maximumFractionDigits: 0 }) + ' km';
+    if (logM < 14.5) return (m / 1.496e11).toFixed(2) + ' AU';
+    const ly = m / 9.461e15;
+    if (ly < 1e6) return ly.toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' ly';
+    if (ly < 1e9) return (ly / 1e6).toFixed(2) + ' Mly (' + (ly / 3.262e6).toFixed(1) + ' Mpc)';
+    return (ly / 1e9).toFixed(2) + ' Bly';
+  }
+
+  function renderUniverseList() {
+    const list = document.getElementById('un-list');
+    list.innerHTML = '';
+    allUniverseObjs().forEach((o) => {
+      const b = document.createElement('button');
+      b.className = 'chip';
+      b.textContent = o.name;
+      b.onclick = () => {
+        targetLog = o.log;
+        document.getElementById('s-log').value = o.log;
+        document.getElementById('un-info').innerHTML = `<b style="color:${o.color}">${o.name}</b> · 10^${o.log.toFixed(2)} m (${formatDistance(o.log)})<br>${o.desc}`;
+      };
+      list.appendChild(b);
+    });
+  }
+  renderUniverseList();
+
+  function drawUniverse(t) {
+    camLog += (targetLog - camLog) * 0.08;
+    document.getElementById('un-scale-readout').textContent = '10^' + camLog.toFixed(2) + ' m';
+    document.getElementById('un-unit').textContent = formatDistance(camLog);
+    const scalePx = Math.min(W, H) * 0.55 * SCALE_FACTOR * 1.4;
+
+    if (camLog > 22.5) {
+      ctx.strokeStyle = 'rgba(180,76,255,0.16)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 18; i++) {
+        const a1 = i * 1.7 + t * 0.02;
+        const a2 = a1 + 1.1;
+        const p1 = project(Math.cos(a1) * 1.7, Math.sin(a1 * 0.7) * 1.1, Math.sin(a1) * 1.7, scalePx);
+        const p2 = project(Math.cos(a2) * 1.7, Math.cos(a2 * 0.8) * 1.1, Math.sin(a2) * 1.7, scalePx);
+        if (p1 && p2) { ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke(); }
+      }
+    }
+
+    const objs = allUniverseObjs();
+    for (let i = 0; i < objs.length; i++) {
+      const o = objs[i];
+      const dLog = o.log - camLog;
+      if (dLog < -3.2 || dLog > 3.6) continue;
+      const r = Math.pow(10, dLog * 0.52) * 0.95;
+      const ra = (o.ra * Math.PI) / 180;
+      const dec = (o.dec * Math.PI) / 180;
+      const x = r * Math.cos(dec) * Math.cos(ra);
+      const y = r * Math.sin(dec);
+      const z = r * Math.cos(dec) * Math.sin(ra);
+      const p = project(x, y, z, scalePx);
+      if (!p) continue;
+
+      const alpha = Math.max(0.08, 1 - Math.abs(dLog) / 3.4);
+      const sz = Math.max(2.5, Math.min(34, (12 / (1 + Math.abs(dLog))) * camZoom));
+      ctx.globalAlpha = alpha;
+
+      if (o.kind === 'bh') {
+        const g = ctx.createRadialGradient(p.x, p.y, sz * 0.3, p.x, p.y, sz * 2.2);
+        g.addColorStop(0, '#000');
+        g.addColorStop(0.38, '#ff8800');
+        g.addColorStop(0.65, 'rgba(255,42,133,0.4)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.x, p.y, sz * 2.2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(p.x, p.y, sz * 0.45, 0, Math.PI * 2); ctx.fill();
+      } else if (o.kind === 'nebula' || o.kind === 'galaxy' || o.kind === 'cmb') {
+        const g = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, sz * 2.3);
+        g.addColorStop(0, o.color);
+        g.addColorStop(0.5, 'rgba(180,76,255,0.22)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.x, p.y, sz * 2.3, 0, Math.PI * 2); ctx.fill();
+      } else {
+        ctx.fillStyle = o.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, sz * 0.45, 0, Math.PI * 2); ctx.fill();
+      }
+
+      ctx.fillStyle = '#e6f4ff';
+      ctx.font = '10px monospace';
+      ctx.fillText(o.name, p.x + sz * 0.6 + 4, p.y + 3);
+      ctx.globalAlpha = 1;
+    }
+
+    const horizonP = project(0, 0, 0, scalePx);
+    if (horizonP && camLog > 24.2) {
+      const hr = Math.min(W, H) * 0.36 * (1 - Math.abs(26.944 - camLog) * 0.2);
+      if (hr > 10) {
+        ctx.strokeStyle = 'rgba(0,240,255,0.35)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath(); ctx.arc(horizonP.x, horizonP.y, hr, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+  }
+
+  function drawTracker(t) {
+    const scalePx = Math.min(W, H) * 0.72;
+    drawEarth(EARTH_R, scalePx);
+
+    SHELLS.forEach((sh) => {
+      ctx.strokeStyle = sh.c;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i <= 64; i++) {
+        const a = (i / 64) * Math.PI * 2;
+        const p = project(Math.cos(a) * sh.r, 0, Math.sin(a) * sh.r, scalePx);
+        if (!p) continue;
+        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    });
+
+    if (selectedSat) {
+      ctx.strokeStyle = selectedSat.color;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      for (let i = 0; i <= 72; i++) {
+        const fakeT = (i / 72) * (Math.PI * 2 / selectedSat.speed);
+        const pos = orbitalPos(selectedSat, fakeT);
+        const p = project(pos.x, pos.y, pos.z, scalePx);
+        if (!p) continue;
+        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+
+    for (let i = 0; i < sats.length; i++) {
+      const s = sats[i];
+      if (trFilter !== 'all' && s.type !== trFilter) { s.sx = -999; continue; }
+      const pos = orbitalPos(s, t);
+      const p = project(pos.x, pos.y, pos.z, scalePx);
+      if (!p) { s.sx = -999; continue; }
+      s.sx = p.x; s.sy = p.y;
+      const isSel = selectedSat === s;
+      const rad = s.type === 'station' ? 3.8 : (isSel ? 4.2 : 1.9);
+      ctx.fillStyle = s.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+      ctx.fill();
+      if (s.type === 'station' || isSel) {
+        ctx.fillStyle = '#e6f4ff';
+        ctx.font = '10px monospace';
+        ctx.fillText(s.name, p.x + 6, p.y + 3);
+      }
+    }
+  }
+
+  function drawKessler(dt) {
+    stepKessler(dt);
+    const scalePx = Math.min(W, H) * 0.72;
+    drawEarth(EARTH_R, scalePx);
+
+    for (let i = 0; i < ksBodies.length; i++) {
+      const b = ksBodies[i];
+      const p = project(b.x, b.y, b.z, scalePx);
+      if (!p) continue;
+      ctx.fillStyle = b.debris ? '#ff2a85' : '#00f0ff';
+      const sz = b.debris ? 1.8 : 2.6;
+      ctx.fillRect(p.x - sz * 0.5, p.y - sz * 0.5, sz, sz);
+    }
+    for (let i = 0; i < ksSparks.length; i++) {
+      const sp = ksSparks[i];
+      const p = project(sp.x, sp.y, sp.z, scalePx);
+      if (!p) continue;
+      const r = (1.1 - sp.life) * (sp.burn ? 16 : 32);
+      ctx.strokeStyle = sp.burn ? `rgba(255,184,0,${sp.life})` : `rgba(255,42,133,${sp.life})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(2, r), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  document.querySelectorAll('.tab').forEach((btn) => {
+    btn.onclick = () => {
+      document.querySelectorAll('.tab').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeTab = btn.dataset.tab;
+      ['tracker', 'kessler', 'universe'].forEach((id) => {
+        document.getElementById('panel-' + id).classList.toggle('hidden', id !== activeTab);
+      });
+    };
+  });
+
+  document.getElementById('toggleHud').onclick = () => {
+    document.getElementById('panel-' + activeTab).classList.toggle('hidden');
+  };
+
+  document.querySelectorAll('#tr-filters .chip').forEach((c) => {
+    c.onclick = () => {
+      document.querySelectorAll('#tr-filters .chip').forEach((x) => x.classList.remove('on'));
+      c.classList.add('on');
+      trFilter = c.dataset.f;
+    };
+  });
+
+  document.getElementById('ks-strike').onclick = triggerASAT;
+  document.getElementById('ks-reset').onclick = () => loadKesslerPreset('starlink');
+  document.querySelectorAll('[data-preset]').forEach((b) => {
+    b.onclick = () => loadKesslerPreset(b.dataset.preset);
+  });
+  document.getElementById('s-warp').oninput = (e) => { ksWarp = +e.target.value; document.getElementById('v-warp').textContent = ksWarp.toFixed(1) + 'x'; };
+  document.getElementById('s-yield').oninput = (e) => { ksYield = +e.target.value; document.getElementById('v-yield').textContent = ksYield; };
+  document.getElementById('s-rad').oninput = (e) => { ksRadMul = +e.target.value; document.getElementById('v-rad').textContent = ksRadMul.toFixed(1) + 'x'; };
+  document.getElementById('s-log').oninput = (e) => { targetLog = +e.target.value; };
+
+  document.getElementById('co-add').onclick = () => {
+    const name = document.getElementById('co-name').value.trim();
+    const log = parseFloat(document.getElementById('co-log').value);
+    const ra = parseFloat(document.getElementById('co-ra').value) || 0;
+    const dec = parseFloat(document.getElementById('co-dec').value) || 0;
+    if (!name || isNaN(log)) return;
+    customObjs.push({ name, log: Math.max(7, Math.min(26.94, log)), ra, dec, color: '#39ff14', kind: 'star', desc: 'Custom plotted coordinate saved in localStorage.' });
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify(customObjs));
+    renderUniverseList();
+    targetLog = log;
+    document.getElementById('s-log').value = log;
+    document.getElementById('co-name').value = '';
+  };
+  document.getElementById('co-clear').onclick = () => {
+    customObjs = [];
+    localStorage.removeItem(CUSTOM_KEY);
+    renderUniverseList();
+  };
+
+  function handleTap(x, y) {
+    if (activeTab === 'tracker') {
+      let best = null, bestD = 26;
+      for (const s of sats) {
+        if (s.sx < 0) continue;
+        const d = Math.hypot(s.sx - x, s.sy - y);
+        if (d < bestD) { bestD = d; best = s; }
+      }
+      selectedSat = best;
+      const box = document.getElementById('tr-selected');
+      if (best) {
+        const extra = best.name.startsWith('ISS') && issLive ? `<br>Lat ${issLive.latitude.toFixed(2)}° · Lon ${issLive.longitude.toFixed(2)}°` : '';
+        box.innerHTML = `<b style="color:${best.color}">${best.name}</b> (${best.group})<br>NORAD #${best.id} · Alt ${best.altKm} km · Inc ${best.incDeg.toFixed(1)}° · ${best.vel} km/s${extra}`;
+      }
+    } else if (activeTab === 'kessler') {
+      const scalePx = Math.min(W, H) * 0.72;
+      let best = null, bestD = 45;
+      for (const b of ksBodies) {
+        const p = project(b.x, b.y, b.z, scalePx);
+        if (!p) continue;
+        const d = Math.hypot(p.x - x, p.y - y);
+        if (d < bestD) { bestD = d; best = b; }
+      }
+      if (best) detonateAt(best, 1.2); else triggerASAT();
+    }
+  }
+
+  canvas.addEventListener('pointerdown', (e) => { drag = true; moved = 0; lastX = e.clientX; lastY = e.clientY; });
+  window.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    moved += Math.hypot(dx, dy);
+    rotY += dx * 0.006;
+    rotX = Math.max(-1.45, Math.min(1.45, rotX + dy * 0.006));
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  window.addEventListener('pointerup', (e) => {
+    if (drag && moved < 8) handleTap(e.clientX, e.clientY);
+    drag = false;
+  });
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    camZoom = Math.max(0.45, Math.min(3.5, camZoom * (e.deltaY > 0 ? 0.92 : 1.08)));
+  }, { passive: false });
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      pinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    }
+  }, { passive: true });
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2) {
+      const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      if (pinchDist > 0) camZoom = Math.max(0.45, Math.min(3.5, camZoom * (d / pinchDist)));
+      pinchDist = d;
+    }
+  }, { passive: true });
+
+  let prev = performance.now(), frames = 0, fpsTimer = 0;
+  function loop(now) {
+    const dt = Math.min(0.05, (now - prev) / 1000);
+    prev = now;
+    frames++; fpsTimer += dt;
+    if (fpsTimer >= 0.5) {
+      document.getElementById('tr-fps').textContent = Math.round(frames / fpsTimer);
+      frames = 0; fpsTimer = 0;
+    }
+    if (!drag) rotY += dt * 0.08;
+    ctx.fillStyle = '#03050a';
+    ctx.fillRect(0, 0, W, H);
+    drawStarfield();
+    const t = now * 0.001;
+    if (activeTab === 'tracker') drawTracker(t);
+    else if (activeTab === 'kessler') drawKessler(dt);
+    else drawUniverse(t);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
