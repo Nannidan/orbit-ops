@@ -7,9 +7,27 @@
   
 <!-- AMOLED-BG-START -->
 <style>
-  html, body, #root, #root > div, main {
+  html, body {
     background-color: #000000 !important;
     background-image: none !important;
+  }
+  #root, #root > div, main {
+    background-color: transparent !important;
+    background-image: none !important;
+  }
+  #root {
+    position: relative;
+    z-index: 1;
+  }
+  #constellation-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    background: #000000;
   }
 </style>
 <!-- AMOLED-BG-END -->
@@ -61,105 +79,93 @@
   if (!c) return;
   const ctx = c.getContext('2d');
   let W = 0, H = 0, DPR = 1;
-  let lat = 44.5690, lon = -80.9406;
+  let heading = 180;
+  let smoothHeading = 180;
 
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        lat = pos.coords.latitude;
-        lon = pos.coords.longitude;
-      },
-      () => {},
-      { enableHighAccuracy: false, timeout: 6000, maximumAge: 600000 }
-    );
-  }
-
-  const DEG = Math.PI / 180;
-  const catalog = [
+  const sectors = [
     {
-      name: 'ORION', color: 'rgba(0,240,255,0.34)',
-      stars: [[5.92,7.41],[5.42,6.35],[5.53,-0.30],[5.60,-1.20],[5.68,-1.94],[5.24,-8.20],[5.80,-9.67]],
-      edges: [[0,1],[0,4],[1,2],[2,3],[3,4],[2,5],[4,6],[5,6]]
+      dir: 0,
+      items: [
+        {
+          name: 'URSA MAJOR', color: 'rgba(180,76,255,0.34)',
+          stars: [[0.14,0.22],[0.24,0.24],[0.31,0.29],[0.38,0.34],[0.48,0.32],[0.50,0.40],[0.40,0.41]],
+          edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,3]]
+        },
+        {
+          name: 'CASSIOPEIA', color: 'rgba(0,240,255,0.34)',
+          stars: [[0.56,0.64],[0.64,0.72],[0.72,0.66],[0.80,0.74],[0.88,0.67]],
+          edges: [[0,1],[1,2],[2,3],[3,4]]
+        }
+      ]
     },
     {
-      name: 'URSA MAJOR', color: 'rgba(180,76,255,0.34)',
-      stars: [[11.06,61.75],[11.03,56.38],[11.90,53.69],[12.26,57.03],[12.90,55.96],[13.40,54.93],[13.79,49.31]],
-      edges: [[0,1],[1,2],[2,3],[3,0],[3,4],[4,5],[5,6]]
+      dir: 90,
+      items: [
+        {
+          name: 'GEMINI', color: 'rgba(57,255,20,0.30)',
+          stars: [[0.22,0.20],[0.32,0.22],[0.18,0.34],[0.30,0.36],[0.16,0.48],[0.28,0.50]],
+          edges: [[0,1],[0,2],[2,4],[1,3],[3,5],[2,3]]
+        },
+        {
+          name: 'LEO', color: 'rgba(255,184,0,0.30)',
+          stars: [[0.52,0.66],[0.58,0.58],[0.66,0.60],[0.62,0.70],[0.74,0.75],[0.84,0.70]],
+          edges: [[0,1],[1,2],[2,3],[3,0],[3,4],[4,5],[2,5]]
+        }
+      ]
     },
     {
-      name: 'CASSIOPEIA', color: 'rgba(0,240,255,0.32)',
-      stars: [[0.15,59.15],[0.68,56.54],[0.95,60.72],[1.43,60.24],[1.91,63.67]],
-      edges: [[0,1],[1,2],[2,3],[3,4]]
+      dir: 180,
+      items: [
+        {
+          name: 'ORION', color: 'rgba(0,240,255,0.36)',
+          stars: [[0.20,0.20],[0.36,0.22],[0.25,0.34],[0.29,0.35],[0.33,0.36],[0.22,0.50],[0.38,0.48]],
+          edges: [[0,1],[0,2],[1,4],[2,3],[3,4],[2,5],[4,6],[5,6]]
+        },
+        {
+          name: 'CANIS MAJOR', color: 'rgba(180,76,255,0.32)',
+          stars: [[0.64,0.60],[0.56,0.64],[0.70,0.72],[0.78,0.76],[0.64,0.80]],
+          edges: [[1,0],[0,2],[2,3],[2,4]]
+        }
+      ]
     },
     {
-      name: 'TAURUS', color: 'rgba(255,184,0,0.30)',
-      stars: [[4.60,16.51],[4.48,15.63],[4.33,15.63],[4.40,17.54],[5.44,28.61],[5.63,21.14],[3.79,24.11]],
-      edges: [[0,1],[1,2],[2,3],[3,0],[0,5],[3,4],[2,6]]
-    },
-    {
-      name: 'GEMINI', color: 'rgba(57,255,20,0.28)',
-      stars: [[7.58,31.89],[7.76,28.03],[6.63,16.40],[6.75,25.13],[7.07,20.57],[7.34,21.98]],
-      edges: [[0,1],[0,3],[3,2],[1,5],[5,4],[4,2]]
-    },
-    {
-      name: 'AURIGA', color: 'rgba(0,240,255,0.28)',
-      stars: [[5.28,45.99],[5.99,44.95],[6.00,37.21],[5.44,28.61],[4.95,33.17]],
-      edges: [[0,1],[1,2],[2,3],[3,4],[4,0]]
-    },
-    {
-      name: 'PERSEUS', color: 'rgba(180,76,255,0.28)',
-      stars: [[3.41,49.86],[3.14,40.96],[3.72,47.79],[3.96,40.01],[3.90,31.88],[2.90,53.51]],
-      edges: [[5,0],[0,1],[0,2],[2,3],[3,4]]
-    },
-    {
-      name: 'CANIS MAJOR', color: 'rgba(0,240,255,0.34)',
-      stars: [[6.75,-16.72],[6.38,-17.96],[6.98,-28.97],[7.14,-26.39],[7.40,-29.30]],
-      edges: [[1,0],[0,3],[3,2],[3,4]]
-    },
-    {
-      name: 'LEO', color: 'rgba(255,184,0,0.28)',
-      stars: [[10.14,11.97],[10.33,19.84],[10.28,23.42],[9.88,26.01],[11.24,20.52],[11.82,14.57],[11.24,15.43]],
-      edges: [[0,1],[1,2],[2,3],[1,4],[4,5],[5,6],[6,0]]
-    },
-    {
-      name: 'CYGNUS', color: 'rgba(255,42,133,0.30)',
-      stars: [[20.69,45.28],[20.37,40.26],[19.51,27.96],[19.75,45.13],[20.77,33.97]],
-      edges: [[0,1],[1,2],[3,1],[1,4]]
-    },
-    {
-      name: 'LYRA', color: 'rgba(57,255,20,0.28)',
-      stars: [[18.62,38.78],[18.83,33.36],[18.98,32.69],[18.91,36.90],[18.74,37.60]],
-      edges: [[0,4],[4,1],[1,2],[2,3],[3,4]]
-    },
-    {
-      name: 'PEGASUS', color: 'rgba(0,240,255,0.26)',
-      stars: [[23.08,15.21],[23.06,28.08],[0.14,15.18],[0.14,29.09]],
-      edges: [[0,1],[1,3],[3,2],[2,0]]
-    },
-    {
-      name: 'SCORPIUS', color: 'rgba(255,42,133,0.30)',
-      stars: [[16.49,-26.43],[16.01,-22.62],[16.09,-19.81],[16.84,-34.29],[17.56,-37.10],[17.71,-39.03],[17.62,-43.00]],
-      edges: [[2,1],[1,0],[0,3],[3,4],[4,5],[5,6]]
-    },
-    {
-      name: 'CRUX', color: 'rgba(0,240,255,0.34)',
-      stars: [[12.44,-63.10],[12.52,-57.11],[12.80,-59.69],[12.25,-58.75]],
-      edges: [[0,1],[2,3]]
+      dir: 270,
+      items: [
+        {
+          name: 'CYGNUS', color: 'rgba(255,42,133,0.32)',
+          stars: [[0.26,0.18],[0.32,0.32],[0.38,0.46],[0.18,0.36],[0.46,0.28]],
+          edges: [[0,1],[1,2],[3,1],[1,4]]
+        },
+        {
+          name: 'PEGASUS', color: 'rgba(0,240,255,0.30)',
+          stars: [[0.58,0.60],[0.78,0.58],[0.80,0.76],[0.60,0.78]],
+          edges: [[0,1],[1,2],[2,3],[3,0]]
+        }
+      ]
     }
   ];
 
-  const bgStars = Array.from({ length: 130 }, () => ({
+  const bgStars = Array.from({ length: 70 }, () => ({
     x: Math.random(),
     y: Math.random(),
-    r: Math.random() * 1.05 + 0.25,
-    p: Math.random() * Math.PI * 2,
-    s: 0.4 + Math.random() * 1.1
+    r: Math.random() * 1.0 + 0.3,
+    p: Math.random() * Math.PI * 2
   }));
+
+  function onOrient(e) {
+    if (typeof e.webkitCompassHeading === 'number') {
+      heading = e.webkitCompassHeading;
+    } else if (typeof e.alpha === 'number') {
+      heading = (360 - e.alpha) % 360;
+    }
+  }
+  window.addEventListener('deviceorientationabsolute', onOrient, true);
+  window.addEventListener('deviceorientation', onOrient, true);
 
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth;
-    H = window.innerHeight;
+    W = c.clientWidth || window.innerWidth;
+    H = c.clientHeight || window.innerHeight;
     c.width = W * DPR;
     c.height = H * DPR;
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -167,91 +173,64 @@
   window.addEventListener('resize', resize);
   resize();
 
-  function getLSTDeg() {
-    const jd = Date.now() / 86400000 + 2440587.5;
-    const d = jd - 2451545.0;
-    const gmst = (280.46061837 + 360.98564736629 * d) % 360;
-    return (gmst + lon + 720) % 360;
-  }
-
-  function skyToScreen(raHrs, decDeg, lstDeg) {
-    const raDeg = raHrs * 15;
-    const ha = ((lstDeg - raDeg + 540) % 360 - 180) * DEG;
-    const dec = decDeg * DEG;
-    const phi = lat * DEG;
-
-    const sinAlt = Math.sin(dec) * Math.sin(phi) + Math.cos(dec) * Math.cos(phi) * Math.cos(ha);
-    const alt = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
-    if (alt < -0.02) return null;
-
-    const cosAz = (Math.sin(dec) - Math.sin(alt) * Math.sin(phi)) / (Math.cos(alt) * Math.cos(phi) || 1e-6);
-    let az = Math.acos(Math.max(-1, Math.min(1, cosAz)));
-    if (Math.sin(ha) > 0) az = Math.PI * 2 - az;
-
-    const maxR = Math.hypot(W, H) * 0.56;
-    const r = ((Math.PI * 0.5 - alt) / (Math.PI * 0.5)) * maxR;
-    return {
-      x: W * 0.5 - r * Math.sin(az),
-      y: H * 0.5 - r * Math.cos(az),
-      alt
-    };
+  function angleDiff(a, b) {
+    return ((a - b + 540) % 360) - 180;
   }
 
   function draw(now) {
     const t = now * 0.001;
-    const lst = getLSTDeg();
+    smoothHeading = (smoothHeading + angleDiff(heading, smoothHeading) * 0.08 + 360) % 360;
+
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, W, H);
 
     for (let i = 0; i < bgStars.length; i++) {
       const s = bgStars[i];
-      const a = 0.18 + 0.35 * (0.5 + 0.5 * Math.sin(t * s.s + s.p));
+      const a = 0.16 + 0.28 * (0.5 + 0.5 * Math.sin(t + s.p));
       ctx.fillStyle = 'rgba(210,235,255,' + a.toFixed(2) + ')';
       ctx.beginPath();
       ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    for (let i = 0; i < catalog.length; i++) {
-      const con = catalog[i];
-      const pts = con.stars.map(([ra, dec]) => skyToScreen(ra, dec, lst));
-      let visibleCount = 0;
-      let labelPt = null;
+    for (let s = 0; s < sectors.length; s++) {
+      const sec = sectors[s];
+      const d = Math.abs(angleDiff(smoothHeading, sec.dir));
+      if (d > 70) continue;
+      const alpha = Math.max(0, 1 - d / 70);
 
-      ctx.strokeStyle = con.color;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let e = 0; e < con.edges.length; e++) {
-        const p1 = pts[con.edges[e][0]];
-        const p2 = pts[con.edges[e][1]];
-        if (p1 && p2) {
-          ctx.moveTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
+      for (let i = 0; i < sec.items.length; i++) {
+        const con = sec.items[i];
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = con.color;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        for (let e = 0; e < con.edges.length; e++) {
+          const [a, b] = con.edges[e];
+          ctx.moveTo(con.stars[a][0] * W, con.stars[a][1] * H);
+          ctx.lineTo(con.stars[b][0] * W, con.stars[b][1] * H);
         }
-      }
-      ctx.stroke();
+        ctx.stroke();
 
-      for (let j = 0; j < pts.length; j++) {
-        const p = pts[j];
-        if (!p) continue;
-        visibleCount++;
-        if (!labelPt) labelPt = p;
-        const fade = Math.min(1, Math.max(0.15, p.alt / 0.25));
-        const pulse = (0.7 + 0.3 * Math.sin(t * 1.4 + i + j)) * fade;
-        ctx.fillStyle = 'rgba(0,240,255,' + (0.22 * pulse).toFixed(2) + ')';
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 4.2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(235,248,255,' + (0.92 * pulse).toFixed(2) + ')';
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 1.6, 0, Math.PI * 2);
-        ctx.fill();
-      }
+        for (let j = 0; j < con.stars.length; j++) {
+          const sx = con.stars[j][0] * W;
+          const sy = con.stars[j][1] * H;
+          const pulse = 0.72 + 0.28 * Math.sin(t * 1.4 + j);
+          ctx.fillStyle = 'rgba(0,240,255,' + (0.24 * pulse).toFixed(2) + ')';
+          ctx.beginPath();
+          ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = 'rgba(235,248,255,' + (0.92 * pulse).toFixed(2) + ')';
+          ctx.beginPath();
+          ctx.arc(sx, sy, 1.7, 0, Math.PI * 2);
+          ctx.fill();
+        }
 
-      if (visibleCount >= 2 && labelPt) {
-        ctx.fillStyle = 'rgba(130,185,225,0.36)';
-        ctx.font = '9px ui-monospace, monospace';
-        ctx.fillText(con.name, labelPt.x + 6, labelPt.y - 6);
+        ctx.fillStyle = 'rgba(150,200,235,0.42)';
+        ctx.font = '10px ui-monospace, monospace';
+        ctx.fillText(con.name, con.stars[0][0] * W + 6, con.stars[0][1] * H - 6);
+        ctx.restore();
       }
     }
 
