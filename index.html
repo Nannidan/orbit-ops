@@ -3,10 +3,45 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>ORBIT // OPS — Live Space & Deep-Space Telemetry</title>
+    <title>ORBIT // OPS — Live Space &amp; Telemetry Dashboard</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-  </body>
+  
+<!-- COSMOS-BTN-START -->
+<style>
+  #cosmos-launch-btn {
+    position: fixed;
+    right: 14px;
+    bottom: 14px;
+    z-index: 9999;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    background: rgba(6, 12, 24, 0.92);
+    color: #00f0ff;
+    border: 1.5px solid #00f0ff;
+    box-shadow: 0 0 16px rgba(0, 240, 255, 0.35), inset 0 0 8px rgba(255, 42, 133, 0.18);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-decoration: none;
+    backdrop-filter: blur(8px);
+  }
+  #cosmos-launch-btn span.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff2a85;
+    box-shadow: 0 0 8px #ff2a85;
+  }
+  #cosmos-launch-btn:active { transform: scale(0.96); }
+</style>
+<a id="cosmos-launch-btn" href="/cosmos.html"><span class="dot"></span>COSMOS 3D // SIM</a>
+<!-- COSMOS-BTN-END -->
+</body>
 </html>
