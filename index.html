@@ -7,27 +7,25 @@
   
 <!-- AMOLED-BG-START -->
 <style>
-  html, body {
+  html, body, #root, #root > div, main {
     background-color: #000000 !important;
     background-image: none !important;
   }
-  #root, #root > div, main {
-    background-color: transparent !important;
-    background-image: none !important;
-  }
-  #root {
-    position: relative;
-    z-index: 1;
-  }
-  #constellation-bg {
-    position: fixed;
-    top: 0;
-    left: 0;
+  .constellation-strip {
     width: 100%;
-    height: 100%;
-    z-index: 0;
+    height: 46px;
+    margin: 6px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    overflow: hidden;
     pointer-events: none;
-    background: #000000;
+    grid-column: 1 / -1;
+  }
+  .constellation-strip svg {
+    height: 40px;
+    width: auto;
+    opacity: 0.78;
   }
 </style>
 <!-- AMOLED-BG-END -->
@@ -72,171 +70,50 @@
 <!-- COSMOS-BTN-END -->
 
 <!-- CONSTELLATION-BG-START -->
-<canvas id="constellation-bg"></canvas>
 <script>
 (() => {
-  const c = document.getElementById('constellation-bg');
-  if (!c) return;
-  const ctx = c.getContext('2d');
-  let W = 0, H = 0, DPR = 1;
-  let heading = 180;
-  let smoothHeading = 180;
-
-  const sectors = [
-    {
-      dir: 0,
-      items: [
-        {
-          name: 'URSA MAJOR', color: 'rgba(180,76,255,0.34)',
-          stars: [[0.14,0.22],[0.24,0.24],[0.31,0.29],[0.38,0.34],[0.48,0.32],[0.50,0.40],[0.40,0.41]],
-          edges: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,3]]
-        },
-        {
-          name: 'CASSIOPEIA', color: 'rgba(0,240,255,0.34)',
-          stars: [[0.56,0.64],[0.64,0.72],[0.72,0.66],[0.80,0.74],[0.88,0.67]],
-          edges: [[0,1],[1,2],[2,3],[3,4]]
-        }
-      ]
-    },
-    {
-      dir: 90,
-      items: [
-        {
-          name: 'GEMINI', color: 'rgba(57,255,20,0.30)',
-          stars: [[0.22,0.20],[0.32,0.22],[0.18,0.34],[0.30,0.36],[0.16,0.48],[0.28,0.50]],
-          edges: [[0,1],[0,2],[2,4],[1,3],[3,5],[2,3]]
-        },
-        {
-          name: 'LEO', color: 'rgba(255,184,0,0.30)',
-          stars: [[0.52,0.66],[0.58,0.58],[0.66,0.60],[0.62,0.70],[0.74,0.75],[0.84,0.70]],
-          edges: [[0,1],[1,2],[2,3],[3,0],[3,4],[4,5],[2,5]]
-        }
-      ]
-    },
-    {
-      dir: 180,
-      items: [
-        {
-          name: 'ORION', color: 'rgba(0,240,255,0.36)',
-          stars: [[0.20,0.20],[0.36,0.22],[0.25,0.34],[0.29,0.35],[0.33,0.36],[0.22,0.50],[0.38,0.48]],
-          edges: [[0,1],[0,2],[1,4],[2,3],[3,4],[2,5],[4,6],[5,6]]
-        },
-        {
-          name: 'CANIS MAJOR', color: 'rgba(180,76,255,0.32)',
-          stars: [[0.64,0.60],[0.56,0.64],[0.70,0.72],[0.78,0.76],[0.64,0.80]],
-          edges: [[1,0],[0,2],[2,3],[2,4]]
-        }
-      ]
-    },
-    {
-      dir: 270,
-      items: [
-        {
-          name: 'CYGNUS', color: 'rgba(255,42,133,0.32)',
-          stars: [[0.26,0.18],[0.32,0.32],[0.38,0.46],[0.18,0.36],[0.46,0.28]],
-          edges: [[0,1],[1,2],[3,1],[1,4]]
-        },
-        {
-          name: 'PEGASUS', color: 'rgba(0,240,255,0.30)',
-          stars: [[0.58,0.60],[0.78,0.58],[0.80,0.76],[0.60,0.78]],
-          edges: [[0,1],[1,2],[2,3],[3,0]]
-        }
-      ]
-    }
+  const sets = [
+    [
+      '<svg viewBox="0 0 110 44" fill="none"><g stroke="#00f0ff" stroke-opacity="0.45" stroke-width="1"><line x1="16" y1="8" x2="36" y2="10"/><line x1="16" y1="8" x2="22" y2="21"/><line x1="36" y1="10" x2="32" y2="23"/><line x1="22" y1="21" x2="27" y2="22"/><line x1="27" y1="22" x2="32" y2="23"/><line x1="22" y1="21" x2="18" y2="36"/><line x1="32" y1="23" x2="38" y2="34"/><line x1="18" y1="36" x2="38" y2="34"/></g><g fill="#e6f4ff"><circle cx="16" cy="8" r="1.7"/><circle cx="36" cy="10" r="1.5"/><circle cx="22" cy="21" r="1.4"/><circle cx="27" cy="22" r="1.4"/><circle cx="32" cy="23" r="1.4"/><circle cx="18" cy="36" r="1.6"/><circle cx="38" cy="34" r="1.7"/></g><text x="48" y="25" fill="#7c93b0" font-size="8" font-family="monospace">ORION</text></svg>',
+      '<svg viewBox="0 0 120 44" fill="none"><g stroke="#b44cff" stroke-opacity="0.45" stroke-width="1"><polyline points="10,16 24,28 38,18 52,30 66,16"/></g><g fill="#e6f4ff"><circle cx="10" cy="16" r="1.6"/><circle cx="24" cy="28" r="1.5"/><circle cx="38" cy="18" r="1.7"/><circle cx="52" cy="30" r="1.5"/><circle cx="66" cy="16" r="1.6"/></g><text x="74" y="25" fill="#7c93b0" font-size="8" font-family="monospace">CASSIOPEIA</text></svg>'
+    ],
+    [
+      '<svg viewBox="0 0 125 44" fill="none"><g stroke="#b44cff" stroke-opacity="0.45" stroke-width="1"><polyline points="8,14 22,16 32,21 42,26 56,24 58,34 44,35 42,26"/></g><g fill="#e6f4ff"><circle cx="8" cy="14" r="1.5"/><circle cx="22" cy="16" r="1.5"/><circle cx="32" cy="21" r="1.5"/><circle cx="42" cy="26" r="1.5"/><circle cx="56" cy="24" r="1.7"/><circle cx="58" cy="34" r="1.6"/><circle cx="44" cy="35" r="1.5"/></g><text x="66" y="25" fill="#7c93b0" font-size="8" font-family="monospace">URSA MAJOR</text></svg>',
+      '<svg viewBox="0 0 110 44" fill="none"><g stroke="#ff2a85" stroke-opacity="0.45" stroke-width="1"><line x1="26" y1="8" x2="26" y2="36"/><line x1="12" y1="22" x2="40" y2="18"/></g><g fill="#e6f4ff"><circle cx="26" cy="8" r="1.8"/><circle cx="26" cy="20" r="1.6"/><circle cx="26" cy="36" r="1.5"/><circle cx="12" cy="22" r="1.4"/><circle cx="40" cy="18" r="1.4"/></g><text x="48" y="25" fill="#7c93b0" font-size="8" font-family="monospace">CYGNUS</text></svg>'
+    ]
   ];
 
-  const bgStars = Array.from({ length: 70 }, () => ({
-    x: Math.random(),
-    y: Math.random(),
-    r: Math.random() * 1.0 + 0.3,
-    p: Math.random() * Math.PI * 2
-  }));
+  let currentIdx = 0;
 
-  function onOrient(e) {
-    if (typeof e.webkitCompassHeading === 'number') {
-      heading = e.webkitCompassHeading;
-    } else if (typeof e.alpha === 'number') {
-      heading = (360 - e.alpha) % 360;
+  function renderStrip(el) {
+    el.innerHTML = sets[currentIdx].join('');
+  }
+
+  function inject() {
+    if (document.querySelector('.constellation-strip')) return true;
+    const container = document.querySelector('main') || document.querySelector('#root > div');
+    if (!container || container.children.length < 2) return false;
+    const strip = document.createElement('div');
+    strip.className = 'constellation-strip';
+    renderStrip(strip);
+    container.insertBefore(strip, container.children[1]);
+    return true;
+  }
+
+  window.addEventListener('deviceorientation', (e) => {
+    if (typeof e.alpha !== 'number') return;
+    const idx = ((e.alpha % 360) + 360) % 360 < 180 ? 0 : 1;
+    if (idx !== currentIdx) {
+      currentIdx = idx;
+      const el = document.querySelector('.constellation-strip');
+      if (el) renderStrip(el);
     }
-  }
-  window.addEventListener('deviceorientationabsolute', onOrient, true);
-  window.addEventListener('deviceorientation', onOrient, true);
+  }, true);
 
-  function resize() {
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = c.clientWidth || window.innerWidth;
-    H = c.clientHeight || window.innerHeight;
-    c.width = W * DPR;
-    c.height = H * DPR;
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  }
-  window.addEventListener('resize', resize);
-  resize();
-
-  function angleDiff(a, b) {
-    return ((a - b + 540) % 360) - 180;
-  }
-
-  function draw(now) {
-    const t = now * 0.001;
-    smoothHeading = (smoothHeading + angleDiff(heading, smoothHeading) * 0.08 + 360) % 360;
-
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, W, H);
-
-    for (let i = 0; i < bgStars.length; i++) {
-      const s = bgStars[i];
-      const a = 0.16 + 0.28 * (0.5 + 0.5 * Math.sin(t + s.p));
-      ctx.fillStyle = 'rgba(210,235,255,' + a.toFixed(2) + ')';
-      ctx.beginPath();
-      ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    for (let s = 0; s < sectors.length; s++) {
-      const sec = sectors[s];
-      const d = Math.abs(angleDiff(smoothHeading, sec.dir));
-      if (d > 70) continue;
-      const alpha = Math.max(0, 1 - d / 70);
-
-      for (let i = 0; i < sec.items.length; i++) {
-        const con = sec.items[i];
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.strokeStyle = con.color;
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        for (let e = 0; e < con.edges.length; e++) {
-          const [a, b] = con.edges[e];
-          ctx.moveTo(con.stars[a][0] * W, con.stars[a][1] * H);
-          ctx.lineTo(con.stars[b][0] * W, con.stars[b][1] * H);
-        }
-        ctx.stroke();
-
-        for (let j = 0; j < con.stars.length; j++) {
-          const sx = con.stars[j][0] * W;
-          const sy = con.stars[j][1] * H;
-          const pulse = 0.72 + 0.28 * Math.sin(t * 1.4 + j);
-          ctx.fillStyle = 'rgba(0,240,255,' + (0.24 * pulse).toFixed(2) + ')';
-          ctx.beginPath();
-          ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = 'rgba(235,248,255,' + (0.92 * pulse).toFixed(2) + ')';
-          ctx.beginPath();
-          ctx.arc(sx, sy, 1.7, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        ctx.fillStyle = 'rgba(150,200,235,0.42)';
-        ctx.font = '10px ui-monospace, monospace';
-        ctx.fillText(con.name, con.stars[0][0] * W + 6, con.stars[0][1] * H - 6);
-        ctx.restore();
-      }
-    }
-
-    requestAnimationFrame(draw);
-  }
-  requestAnimationFrame(draw);
+  const timer = setInterval(() => {
+    if (inject()) clearInterval(timer);
+  }, 300);
+  setTimeout(() => clearInterval(timer), 8000);
 })();
 </script>
 <!-- CONSTELLATION-BG-END -->
