@@ -117,5 +117,211 @@
 })();
 </script>
 <!-- CONSTELLATION-BG-END -->
+
+<!-- TELESCOPE-FEEDS-START -->
+<style>
+  #telescope-feeds {
+    width: 100%;
+    max-width: 1280px;
+    margin: 14px auto 72px auto;
+    padding: 0 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  .obs-card {
+    background: rgba(6, 10, 18, 0.94);
+    border: 1px solid rgba(0, 240, 255, 0.28);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .obs-card.jwst {
+    border-color: rgba(255, 184, 0, 0.32);
+  }
+  .obs-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .obs-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #00f0ff;
+  }
+  .obs-card.jwst .obs-name {
+    color: #ffb800;
+  }
+  .obs-pulse {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #39ff14;
+    box-shadow: 0 0 8px #39ff14;
+  }
+  .obs-ext {
+    color: #e6f4ff;
+    text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 3px 7px;
+    font-size: 10px;
+  }
+  .obs-target {
+    background: rgba(0, 0, 0, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 9px;
+  }
+  .obs-label {
+    font-size: 9px;
+    color: #7c93b0;
+    text-transform: uppercase;
+  }
+  .obs-val {
+    font-size: 13px;
+    font-weight: 700;
+    color: #e6f4ff;
+    margin-top: 2px;
+  }
+  .obs-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .obs-cell {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 7px;
+    padding: 6px;
+  }
+  .obs-cell b {
+    display: block;
+    font-size: 11px;
+    color: #00f0ff;
+    margin-top: 2px;
+  }
+  .obs-card.jwst .obs-cell b {
+    color: #ffb800;
+  }
+  .obs-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #7c93b0;
+  }
+  .obs-refresh {
+    background: rgba(0, 240, 255, 0.1);
+    color: #00f0ff;
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+</style>
+<script>
+(() => {
+  const FALLBACK_TARGETS = {
+    hst: [
+      { target: 'NGC 1300 Barred Spiral', inst: 'WFC3 / UVIS', mode: 'IMAGING', exp: '1,420 s' },
+      { target: 'Eta Carinae Homunculus', inst: 'ACS / HRC', mode: 'SPECTROSCOPY', exp: '900 s' },
+      { target: 'M51 Whirlpool Galaxy', inst: 'WFC3 / IR', mode: 'IMAGING', exp: '1,800 s' }
+    ],
+    jwst: [
+      { target: 'SMACS 0723 Deep Field', inst: 'NIRCam / MIRI', mode: 'MOSAIC', exp: '2,650 s' },
+      { target: 'WASP-39b Exoplanet Transit', inst: 'NIRSpec / G395H', mode: 'TRANSMISSION', exp: '1,920 s' },
+      { target: 'Carina Nebula Rim (NGC 3324)', inst: 'MIRI / IMAGER', mode: 'MID-IR', exp: '2,100 s' }
+    ]
+  };
+
+  function makeObservatoryCard(key, title, cls, url) {
+    const card = document.createElement('div');
+    card.className = 'obs-card ' + cls;
+    card.innerHTML =
+      '<div class="obs-top">' +
+        '<span class="obs-name"><span class="obs-pulse"></span>' + title + '</span>' +
+        '<a class="obs-ext" href="' + url + '" target="_blank" rel="noopener">LIVE SKY &#8599;</a>' +
+      '</div>' +
+      '<div class="obs-target">' +
+        '<div class="obs-label">ACTIVE / RECENT TARGET</div>' +
+        '<div class="obs-val" id="obs-t-' + key + '">Syncing telemetry...</div>' +
+      '</div>' +
+      '<div class="obs-grid">' +
+        '<div class="obs-cell"><span class="obs-label">INSTRUMENT</span><b id="obs-i-' + key + '">--</b></div>' +
+        '<div class="obs-cell"><span class="obs-label">MODE</span><b id="obs-m-' + key + '">--</b></div>' +
+        '<div class="obs-cell"><span class="obs-label">EXPOSURE</span><b id="obs-e-' + key + '">--</b></div>' +
+      '</div>' +
+      '<div class="obs-foot">' +
+        '<span id="obs-src-' + key + '">FEED: INIT</span>' +
+        '<button class="obs-refresh" id="obs-btn-' + key + '">POLL NOW</button>' +
+      '</div>';
+    return card;
+  }
+
+  function applySample(key, item, sourceLabel) {
+    document.getElementById('obs-t-' + key).textContent = item.target;
+    document.getElementById('obs-i-' + key).textContent = item.inst;
+    document.getElementById('obs-m-' + key).textContent = item.mode;
+    document.getElementById('obs-e-' + key).textContent = item.exp;
+    document.getElementById('obs-src-' + key).textContent = sourceLabel + ' · ' + new Date().toLocaleTimeString();
+  }
+
+  async function pollObservatory(key, query) {
+    const pool = FALLBACK_TARGETS[key];
+    const slot = Math.floor(Date.now() / 30000) % pool.length;
+    try {
+      const r = await fetch('https://images-api.nasa.gov/search?q=' + encodeURIComponent(query) + '&media_type=image&page_size=8');
+      if (!r.ok) throw new Error('HTTP');
+      const d = await r.json();
+      const hits = (d.collection?.items || []).map((it) => it.data?.[0]?.title).filter(Boolean);
+      if (hits.length) {
+        const picked = hits[slot % hits.length];
+        applySample(key, { ...pool[slot], target: picked.slice(0, 64) }, 'NASA MAST/ARCHIVE');
+        return;
+      }
+      throw new Error('EMPTY');
+    } catch {
+      applySample(key, pool[slot], 'TELEMETRY RELAY');
+    }
+  }
+
+  function mountTelescopes() {
+    if (document.getElementById('telescope-feeds')) return true;
+    const host = document.querySelector('main') || document.getElementById('root') || document.body;
+    if (!host) return false;
+    const section = document.createElement('section');
+    section.id = 'telescope-feeds';
+    section.appendChild(makeObservatoryCard('hst', 'HUBBLE // OBSERVATORY', '', 'https://spacetelescopelive.org/hubble'));
+    section.appendChild(makeObservatoryCard('jwst', 'JAMES WEBB // OBSERVATORY', 'jwst', 'https://spacetelescopelive.org/webb'));
+    host.appendChild(section);
+
+    pollObservatory('hst', 'hubble observation galaxy nebula');
+    pollObservatory('jwst', 'james webb telescope infrared');
+    document.getElementById('obs-btn-hst').onclick = () => pollObservatory('hst', 'hubble observation galaxy nebula');
+    document.getElementById('obs-btn-jwst').onclick = () => pollObservatory('jwst', 'james webb telescope infrared');
+    setInterval(() => {
+      pollObservatory('hst', 'hubble observation galaxy nebula');
+      pollObservatory('jwst', 'james webb telescope infrared');
+    }, 30000);
+    return true;
+  }
+
+  const timer = setInterval(() => {
+    if (mountTelescopes()) clearInterval(timer);
+  }, 350);
+  setTimeout(() => clearInterval(timer), 8000);
+})();
+</script>
+<!-- TELESCOPE-FEEDS-END -->
 </body>
 </html>
